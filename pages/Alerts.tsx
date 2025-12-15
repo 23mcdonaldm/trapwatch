@@ -5,6 +5,10 @@ import { storageService } from '../services/storage';
 import { League, Team, UserPreferences } from '../types';
 import { ALL_TEAMS } from '../data/teams';
 
+import { useAuth } from '../contexts/authContext';
+import { doSignInWithEmailAndPassword, doSignInWithGoogle, doCreateUserWithEmailAndPassword } from '../firebase/auth';
+
+
 type ViewState = 'AUTH' | 'ONBOARDING_LEAGUES' | 'ONBOARDING_TEAMS' | 'ONBOARDING_PREFS' | 'DASHBOARD';
 
 const Alerts: React.FC = () => {
@@ -12,7 +16,10 @@ const Alerts: React.FC = () => {
   const [view, setView] = useState<ViewState>('AUTH');
   const [userState, setUserState] = useState(storageService.getUserState());
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  
+
+  const { userLoggedIn } = useAuth();
+
+  // Auth is handled within this page
   // Onboarding State
   const [selectedLeagues, setSelectedLeagues] = useState<League[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]); // Keys from ALL_TEAMS
@@ -72,9 +79,11 @@ const Alerts: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            await storageService.loginWithGoogle();
+            await doSignInWithGoogle();
+            setView('ONBOARDING_LEAGUES');
         } catch (err: any) {
             setError(err.message || 'Failed to login with Google');
+        } finally {
             setLoading(false);
         }
     };
@@ -86,15 +95,17 @@ const Alerts: React.FC = () => {
         
         try {
             if (isSignUp) {
-                await storageService.registerWithEmail(email, password);
+                await doCreateUserWithEmailAndPassword(email, password);
             } else {
-                await storageService.loginWithEmail(email, password);
+                await doSignInWithEmailAndPassword(email, password);
             }
+            setView('ONBOARDING_LEAGUES');
         } catch (err: any) {
             if (err.code === 'auth/invalid-credential') setError('Invalid email or password.');
             else if (err.code === 'auth/email-already-in-use') setError('Email already in use.');
             else if (err.code === 'auth/weak-password') setError('Password should be at least 6 characters.');
             else setError(err.message || 'Authentication failed');
+        } finally {
             setLoading(false);
         }
     };
