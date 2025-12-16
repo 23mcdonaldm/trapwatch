@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, ShieldAlert, LogIn, Check, Mail, Smartphone, Search, ArrowRight, ArrowLeft, Home, Loader2, AlertCircle, Trophy } from 'lucide-react';
+import { Bell, ShieldAlert, Check, Mail, Smartphone, Search, ArrowRight, ArrowLeft, Home, Loader2, AlertCircle, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { storageService } from '../services/storage';
-import { League, Team, UserPreferences } from '../types';
+import { League, UserPreferences } from '../types';
 import { ALL_TEAMS } from '../data/teams';
-
-import { useAuth } from '../contexts/authContext';
-import { doSignInWithEmailAndPassword, doSignInWithGoogle, doCreateUserWithEmailAndPassword } from '../firebase/auth';
-
+import { doSignInWithEmailAndPassword, doSignInWithGoogle, doCreateUserWithEmailAndPassword, doSignOut } from '../firebase/auth';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { savePreferencesToFirestore } from '../store/slices/preferencesSlice';
+import { logout } from '../store/slices/authSlice';
 
 type ViewState = 'AUTH' | 'ONBOARDING_LEAGUES' | 'ONBOARDING_TEAMS' | 'ONBOARDING_PREFS' | 'DASHBOARD';
 
 const Alerts: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [view, setView] = useState<ViewState>('AUTH');
-  const [userState, setUserState] = useState(storageService.getUserState());
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-
-  const { userLoggedIn } = useAuth();
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const isLoadingAuth = useAppSelector((state) => state.auth.loading);
+  const preferences = useAppSelector((state) => state.preferences.preferences);
+  const isLoadingPreferences = useAppSelector((state) => state.preferences.loading);
+  const userData = useAppSelector((state) => state.auth.userData);
 
   // Auth is handled within this page
   // Onboarding State
@@ -30,39 +31,58 @@ const Alerts: React.FC = () => {
     contactPhone: ''
   });
 
-  // Init Auth Listener
+  // Update email when userData becomes available
   useEffect(() => {
-    storageService.initAuthListener((newState) => {
-      setUserState(newState);
-      if (newState.isAuthenticated) {
-        if (newState.preferences) {
-          setView('DASHBOARD');
-        } else {
-          // New user or no prefs saved yet
-          setView('ONBOARDING_LEAGUES');
-        }
-      } else {
-        setView('AUTH');
+    if (userData?.email && !notifications.contactEmail) {
+      setNotifications(prev => ({ ...prev, contactEmail: userData.email }));
+    }
+  }, [userData?.email]);
+
+  // Update view based on auth state and preferences
+  useEffect(() => {
+    // Wait for auth to finish loading
+    if (isLoadingAuth) return;
+    
+    if (isAuthenticated) {
+      // Wait a bit for preferences to load from Firestore
+      // If preferences exist, go to dashboard; otherwise onboarding
+      if (preferences) {
+        setView('DASHBOARD');
+      } else if (!isLoadingPreferences) {
+        // Only show onboarding if we've confirmed no preferences exist
+        setView('ONBOARDING_LEAGUES');
       }
-      setIsLoadingAuth(false);
-    });
-  }, []);
+    } else {
+      setView('AUTH');
+    }
+  }, [isAuthenticated, isLoadingAuth, preferences, isLoadingPreferences]);
 
   // --- Actions ---
 
   const handleFinishOnboarding = async () => {
+    if (!userData?.uid) return;
+    
     const prefs: UserPreferences = {
       favoriteLeagues: selectedLeagues,
       favoriteTeams: selectedTeams,
       notifications: notifications
     };
-    await storageService.savePreferences(prefs);
-    setUserState(storageService.getUserState());
+    
+    // Save preferences to Firestore (updates user document)
+    await dispatch(savePreferencesToFirestore({ uid: userData.uid, preferences: prefs }));
+    
+    // Also update phone number in user document if provided
+    if (notifications.contactPhone) {
+      const { firestoreService } = await import('../services/firestore');
+      await firestoreService.updatePhoneNumber(userData.uid, notifications.contactPhone);
+    }
+    
     setView('DASHBOARD');
   };
 
   const handleLogout = async () => {
-    await storageService.logout();
+    await doSignOut();
+    dispatch(logout());
     setView('AUTH');
   };
 
@@ -80,10 +100,9 @@ const Alerts: React.FC = () => {
         setError('');
         try {
             await doSignInWithGoogle();
-            setView('ONBOARDING_LEAGUES');
+            // View will be set automatically by useEffect based on preferences
         } catch (err: any) {
             setError(err.message || 'Failed to login with Google');
-        } finally {
             setLoading(false);
         }
     };
@@ -99,18 +118,17 @@ const Alerts: React.FC = () => {
             } else {
                 await doSignInWithEmailAndPassword(email, password);
             }
-            setView('ONBOARDING_LEAGUES');
+            // View will be set automatically by useEffect based on preferences
         } catch (err: any) {
             if (err.code === 'auth/invalid-credential') setError('Invalid email or password.');
             else if (err.code === 'auth/email-already-in-use') setError('Email already in use.');
             else if (err.code === 'auth/weak-password') setError('Password should be at least 6 characters.');
             else setError(err.message || 'Authentication failed');
-        } finally {
             setLoading(false);
         }
     };
 
-    if (isLoadingAuth) {
+    if (isLoadingAuth || (isAuthenticated && isLoadingPreferences)) {
         return (
             <div className="flex justify-center pt-20">
                 <Loader2 className="animate-spin text-orange-500" size={48} />
@@ -392,24 +410,24 @@ const Alerts: React.FC = () => {
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Email Address</label>
               <input 
                 type="email" 
-                value={notifications.contactEmail} 
+                value={notifications.contactEmail || userData?.email || ''} 
                 onChange={(e) => setNotifications({...notifications, contactEmail: e.target.value})}
-                placeholder="name@example.com"
+                placeholder={userData?.email || "name@example.com"}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 outline-none text-slate-900 dark:text-white"
               />
             </div>
-            {(notifications.myTeams.sms || notifications.anyTrap.sms) && (
-              <div className="animate-in fade-in slide-in-from-top-2">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Phone Number</label>
-                <input 
-                  type="tel" 
-                  value={notifications.contactPhone} 
-                  onChange={(e) => setNotifications({...notifications, contactPhone: e.target.value})}
-                  placeholder="(555) 555-5555"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 outline-none text-slate-900 dark:text-white"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                Phone Number {!notifications.myTeams.sms && !notifications.anyTrap.sms && <span className="text-slate-400">(Optional)</span>}
+              </label>
+              <input 
+                type="tel" 
+                value={notifications.contactPhone} 
+                onChange={(e) => setNotifications({...notifications, contactPhone: e.target.value})}
+                placeholder="(555) 555-5555"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2 outline-none text-slate-900 dark:text-white"
+              />
+            </div>
           </div>
         </div>
 
@@ -433,11 +451,11 @@ const Alerts: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
            <div className="flex items-center gap-3">
              <div className="w-12 h-12 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 text-lg uppercase">
-               {userState.user?.name.charAt(0)}
+               {userData?.name.charAt(0)}
              </div>
              <div>
-               <p className="font-bold text-slate-900 dark:text-white text-lg">{userState.user?.name}</p>
-               <p className="text-xs text-slate-500 dark:text-slate-400">{userState.user?.email}</p>
+               <p className="font-bold text-slate-900 dark:text-white text-lg">{userData?.name}</p>
+               <p className="text-xs text-slate-500 dark:text-slate-400">{userData?.email}</p>
              </div>
            </div>
            <button onClick={handleLogout} className="text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg border border-red-100 dark:border-red-900/30">
@@ -451,11 +469,11 @@ const Alerts: React.FC = () => {
             <button onClick={() => setView('ONBOARDING_TEAMS')} className="text-xs font-bold text-orange-600 dark:text-orange-500">Edit</button>
           </div>
           <div className="p-4">
-             {(!userState.preferences?.favoriteTeams || userState.preferences.favoriteTeams.length === 0) ? (
+             {(!preferences?.favoriteTeams || preferences.favoriteTeams.length === 0) ? (
                <p className="text-slate-400 text-sm">No teams selected.</p>
              ) : (
                <div className="flex flex-wrap gap-2">
-                 {userState.preferences?.favoriteTeams.map(id => {
+                 {preferences?.favoriteTeams.map(id => {
                    const team = ALL_TEAMS[id];
                    return team ? (
                      <span key={id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold">
@@ -477,15 +495,15 @@ const Alerts: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">My Teams Alerts</span>
               <div className="flex gap-2">
-                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${userState.preferences?.notifications.myTeams.email ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>Email</span>
-                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${userState.preferences?.notifications.myTeams.sms ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>SMS</span>
+                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${preferences?.notifications.myTeams.email ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>Email</span>
+                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${preferences?.notifications.myTeams.sms ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>SMS</span>
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Any Trap Updates</span>
               <div className="flex gap-2">
-                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${userState.preferences?.notifications.anyTrap.email ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>Email</span>
-                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${userState.preferences?.notifications.anyTrap.sms ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>SMS</span>
+                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${preferences?.notifications.anyTrap.email ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>Email</span>
+                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${preferences?.notifications.anyTrap.sms ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'}`}>SMS</span>
               </div>
             </div>
           </div>

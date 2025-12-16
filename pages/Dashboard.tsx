@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Bell, User, Calendar, Moon, Sun, Trophy } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Bell, User, Calendar, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_GAMES } from '../constants';
 import { FilterState } from '../types';
 import TrapGameCard from '../components/TrapGameCard';
 import { FiltersBar } from '../components/FiltersBar';
-import { storageService } from '../services/storage';
+import { useAppSelector } from '../store/hooks';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   // We keep state logic simple in case we want to re-add filters later.
   const [filters, setFilters] = useState<FilterState>({
@@ -16,8 +17,6 @@ const Dashboard: React.FC = () => {
     search: '',
     label: 'ALL'
   });
-  
-  const isAuthenticated = storageService.isAuthenticated();
 
   const filteredGames = useMemo(() => {
     return MOCK_GAMES.filter(game => {
