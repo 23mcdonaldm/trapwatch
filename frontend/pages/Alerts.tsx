@@ -7,6 +7,7 @@ import { doSignInWithEmailAndPassword, doSignInWithGoogle, doCreateUserWithEmail
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { savePreferencesToFirestore } from '../store/slices/preferencesSlice';
 import { logout } from '../store/slices/authSlice';
+import { firestoreService } from '../services/firestore';
 
 type ViewState = 'AUTH' | 'ONBOARDING_LEAGUES' | 'ONBOARDING_TEAMS' | 'ONBOARDING_PREFS' | 'DASHBOARD';
 
@@ -73,7 +74,6 @@ const Alerts: React.FC = () => {
     
     // Also update phone number in user document if provided
     if (notifications.contactPhone) {
-      const { firestoreService } = await import('../services/firestore');
       await firestoreService.updatePhoneNumber(userData.uid, notifications.contactPhone);
     }
     

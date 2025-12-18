@@ -462,8 +462,9 @@ export const storageService = {
         const rawVotes: Vote[] = combinedVotesData[user.uid] || [];
         
         // 1. Filter by Window & Lock Status
+        const votesArray: Vote[] = Array.isArray(rawVotes) ? rawVotes : Object.values(rawVotes) as Vote[];
         
-        const validVotes = (Array.isArray(rawVotes) ? rawVotes : Object.values(rawVotes)).filter((v: Vote) => {
+        const validVotes = votesArray.filter((v: Vote) => {
             if (v.timestamp < windowStart) return false;
             
             // Check if game is actually finished/locked

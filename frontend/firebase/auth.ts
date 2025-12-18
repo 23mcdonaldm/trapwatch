@@ -26,10 +26,16 @@ export const doPasswordReset = (email: string) => {
 }
 
 export const doPasswordChange = (password: string) => {
+    if (!auth.currentUser) {
+        throw new Error('No user is currently signed in');
+    }
     return updatePassword(auth.currentUser, password);
 }
 
 export const doSendEmailVerification = () => {
+    if (!auth.currentUser) {
+        throw new Error('No user is currently signed in');
+    }
     return sendEmailVerification(auth.currentUser, {
         url: `${window.location.origin}/home`,
     })

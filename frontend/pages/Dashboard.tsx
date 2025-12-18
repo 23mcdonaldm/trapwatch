@@ -1,0 +1,220 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MOCK_GAMES } from '../constants';
+import { FilterState, TrapLabel } from '../types';
+import TrapGameCard from '../components/TrapGameCard';
+import { FiltersBar } from '../components/FiltersBar';
+import { storageService } from '../services/storage';
+
+const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
+  // We keep state logic simple in case we want to re-add filters later.
+  const [filters, setFilters] = useState<FilterState>({
+    league: 'ALL',
+    search: '',
+    label: 'ALL'
+  });
+  
+  const isAuthenticated = storageService.isAuthenticated();
+
+  const groupedGames = useMemo(() => {
+    const allFiltered = MOCK_GAMES.filter(game => {
+      const matchesLeague = filters.league === 'ALL' || game.league === filters.league;
+      const matchesLabel = filters.label === 'ALL' || game.trapLabel === filters.label;
+      const matchesSearch = filters.search === '' || 
+        game.homeTeam.name.toLowerCase().includes(filters.search.toLowerCase()) || 
+        game.awayTeam.name.toLowerCase().includes(filters.search.toLowerCase());
+      
+      return matchesLeague && matchesLabel && matchesSearch;
+    }).sort((a, b) => b.severityScore - a.severityScore);
+
+    return {
+        [TrapLabel.CITY]: allFiltered.filter(g => g.trapLabel === TrapLabel.CITY),
+        [TrapLabel.DETECTED]: allFiltered.filter(g => g.trapLabel === TrapLabel.DETECTED),
+        [TrapLabel.POTENTIAL]: allFiltered.filter(g => g.trapLabel === TrapLabel.POTENTIAL),
+        total: allFiltered.length
+    };
+  }, [filters]);
+
+  const SectionHeader: React.FC<{ title: string; subtitle: string; icon?: React.ReactNode; colorClass: string }> = ({ title, subtitle, icon, colorClass }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+    
+    return (
+      <div className="mb-3 mt-6 px-1 md:mb-4 md:mt-8 flex items-center gap-2 relative z-10">
+          <h2 className={`text-lg md:text-2xl font-black flex items-center gap-2 ${colorClass}`}>
+              {title} {icon}
+          </h2>
+          <div className="relative flex items-center">
+            <button 
+                onClick={(e) => { e.stopPropagation(); setShowTooltip(!showTooltip); }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Info"
+            >
+                <Info size={16} />
+            </button>
+            
+            {showTooltip && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowTooltip(false)} />
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-28 sm:w-40 p-1.5 sm:p-2 bg-slate-800/95 dark:bg-white/95 backdrop-blur-sm text-white dark:text-slate-900 text-[9px] sm:text-xs font-medium rounded-lg shadow-xl z-50 animate-in fade-in zoom-in-95 duration-200 border border-white/10 dark:border-slate-200/20">
+                         {/* Arrow */}
+                         <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-1.5 h-1.5 bg-slate-800/95 dark:bg-white/95 rotate-45 border-l border-b border-white/10 dark:border-slate-200/20"></div>
+                         {subtitle}
+                    </div>
+                </>
+            )}
+          </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-[#020617] pb-10 transition-colors duration-200 relative">
+      
+      {/* --- Header --- */}
+      <header className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 transition-colors duration-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          
+          {/* Brand */}
+          <div className="flex items-center gap-1 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
+            <h1 className="text-2xl font-black tracking-tighter">
+              <span className="text-slate-900 dark:text-white">Trap</span>
+              <span className="bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">Watch</span>
+            </h1>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-2 sm:gap-4">
+             {/* Scoreboard Link (Always visible) */}
+             <button 
+                  onClick={() => navigate('/scoreboard')}
+                  className="flex items-center gap-2 p-2 rounded-full text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors md:px-3 md:rounded-lg"
+                  aria-label="Scoreboard"
+             >
+                   <Trophy size={20} className="text-orange-500" />
+                   <span className="hidden md:inline font-bold text-sm text-slate-700 dark:text-slate-200">Scoreboard</span>
+             </button>
+
+             {/* Mobile: Get Alerts Icon (Only if not auth) */}
+             {!isAuthenticated && (
+                <button 
+                  onClick={() => navigate('/alerts')}
+                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 border border-orange-100 dark:border-orange-800"
+                >
+                  <Bell size={18} />
+                </button>
+             )}
+
+             {/* Desktop: Actions */}
+             {!isAuthenticated ? (
+               <button 
+                 onClick={() => navigate('/alerts')}
+                 className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-500 font-bold text-sm hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+               >
+                 <Bell size={16} />
+                 <span>Get alerts</span>
+               </button>
+             ) : (
+                <button 
+                  onClick={() => navigate('/settings')}
+                  className="flex items-center gap-2 pl-4 border-l border-slate-200 dark:border-slate-800 hover:opacity-75 transition-opacity"
+                >
+                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                      <User size={16} />
+                    </div>
+                </button>
+             )}
+          </div>
+
+        </div>
+      </header>
+      
+      <FiltersBar filters={filters} setFilters={setFilters} />
+
+      {/* --- Hero Section --- */}
+      <div className="max-w-5xl mx-auto px-4 pt-8 text-center relative z-10">
+        <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">
+          Live <span className="bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">Trap Board</span>
+        </h1>
+        
+        <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-5 py-2.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm mb-4">
+          <Calendar size={18} className="text-orange-500" />
+          <span className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-base">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          </span>
+        </div>
+      </div>
+
+      {/* --- Games List Segmented --- */}
+      <div className="max-w-5xl mx-auto px-4 pb-12 relative z-10">
+        {groupedGames.total === 0 ? (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
+            <p className="text-slate-400 font-medium">No traps found matching your filters.</p>
+            <button 
+              onClick={() => setFilters({ league: 'ALL', search: '', label: 'ALL' })}
+              className="mt-2 text-orange-600 font-bold hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+            <>
+                {/* Trap City */}
+                {groupedGames[TrapLabel.CITY].length > 0 && (
+                    <section>
+                        <SectionHeader 
+                            title="Trap City" 
+                            subtitle="Highest confidence traps with massive public money disparities."
+                            icon={<span className="text-lg md:text-2xl">🚨</span>}
+                            colorClass="text-[#cc0000]"
+                        />
+                        <div className="space-y-4">
+                            {groupedGames[TrapLabel.CITY].map(game => (
+                                <TrapGameCard key={game.id} game={game} hideLabel={true} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Trap Detected */}
+                {groupedGames[TrapLabel.DETECTED].length > 0 && (
+                    <section>
+                        <SectionHeader 
+                            title="Trap Detected" 
+                            subtitle="Significant signals detected. Proceed with caution."
+                            icon={<span className="text-lg md:text-2xl">⚠️</span>}
+                            colorClass="text-slate-900 dark:text-white"
+                        />
+                        <div className="space-y-4">
+                            {groupedGames[TrapLabel.DETECTED].map(game => (
+                                <TrapGameCard key={game.id} game={game} hideLabel={true} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Potential Trap */}
+                {groupedGames[TrapLabel.POTENTIAL].length > 0 && (
+                    <section>
+                        <SectionHeader 
+                            title="Trap Potential" 
+                            subtitle="Early indicators forming. Keep an eye on line movement."
+                            icon={<span className="text-lg md:text-2xl">👀</span>}
+                            colorClass="text-slate-600 dark:text-slate-400"
+                        />
+                        <div className="space-y-4">
+                            {groupedGames[TrapLabel.POTENTIAL].map(game => (
+                                <TrapGameCard key={game.id} game={game} hideLabel={true} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+            </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
