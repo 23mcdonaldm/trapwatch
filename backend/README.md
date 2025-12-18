@@ -16,6 +16,14 @@ gcp_project_id=YOUR_GCP_PROJECT_ID
 odds_api_key=YOUR_ODDS_API_KEY
 ```
 
+### 2) Set up Google project and auth for local runs
+
+in computer terminal:
+
+gcloud auth application-default login
+gcloud config set project YOUR_GCP_PROJECT_ID
+
+
 ### 2) Run backend
 
 cd backend/src/main

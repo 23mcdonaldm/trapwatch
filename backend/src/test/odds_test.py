@@ -96,8 +96,9 @@ class OddsApiRouteTests(unittest.TestCase):
         # Reload router/service modules in case earlier tests replaced sys.modules entries.
         odds_service = importlib.import_module("service.odds_service")
 
-        async def fake_get_odds(league_key: str):
+        async def fake_get_odds(league_key: str, dry_run: bool = False):
             self.assertEqual(league_key, "americanfootball_nfl")
+            self.assertFalse(dry_run)
             return (3, 2)
 
         odds_service.get_odds = fake_get_odds
@@ -146,7 +147,8 @@ class OddsApiRouteTests(unittest.TestCase):
 
         odds_service = importlib.import_module("service.odds_service")
 
-        async def fake_get_all_odds():
+        async def fake_get_all_odds(dry_run: bool = False):
+            self.assertFalse(dry_run)
             return (10, 7)
 
         odds_service.get_all_odds = fake_get_all_odds
@@ -161,6 +163,28 @@ class OddsApiRouteTests(unittest.TestCase):
         r = client.get("/api/v1/odds")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json(), {"leagueKey": "all", "fetchedCount": 10, "upsertedCount": 7})
+
+    def test_get_odds_all_dry_run_skips_persist(self):
+        _install_google_firestore_stubs()
+
+        odds_service = importlib.import_module("service.odds_service")
+
+        async def fake_get_all_odds(dry_run: bool = False):
+            self.assertTrue(dry_run)
+            return (10, 0)
+
+        odds_service.get_all_odds = fake_get_all_odds
+
+        main_mod = importlib.import_module("main")
+        importlib.reload(main_mod)
+        app = main_mod.create_app()
+
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        r = client.get("/api/v1/odds?dry_run=1")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {"leagueKey": "all", "fetchedCount": 10, "upsertedCount": 0})
 
 
 class OddsRepositoryTests(unittest.TestCase):
@@ -234,6 +258,118 @@ class OddsRepositoryTests(unittest.TestCase):
         for call in fake_db._batch.set_calls:
             self.assertIn("bookmaker", call["data"])
             self.assertEqual(call["data"]["bookmaker"], "draftkings")
+
+    def test_upsert_current_odds_defaults_odds_updated_at_to_iso_z(self):
+        _install_google_firestore_stubs()
+
+        odds_repo = importlib.import_module("repository.odds_repository")
+        importlib.reload(odds_repo)
+
+        class FakeBatch:
+            def __init__(self):
+                self.set_calls = []
+
+            def set(self, ref, data, merge=False):
+                self.set_calls.append({"ref": ref, "data": data, "merge": merge})
+
+            def commit(self):
+                return None
+
+        class FakeDocRef:
+            def __init__(self, path: str):
+                self.path = path
+
+            def collection(self, name: str):
+                return FakeCollectionRef(f"{self.path}/{name}")
+
+        class FakeCollectionRef:
+            def __init__(self, path: str):
+                self.path = path
+
+            def document(self, doc_id: str | None = None):
+                doc_id = doc_id or "auto-id"
+                return FakeDocRef(f"{self.path}/{doc_id}")
+
+        class FakeDB:
+            def __init__(self):
+                self._batch = FakeBatch()
+
+            def batch(self):
+                return self._batch
+
+            def collection(self, name: str):
+                return FakeCollectionRef(name)
+
+        fake_db = FakeDB()
+        odds_repo.get_db = lambda: fake_db  # noqa: E731
+
+        odds_repo.upsert_current_odds(
+            [
+                {
+                    "gameId": "game-1",
+                    "home_ml": -110,
+                    "away_ml": 100,
+                    # last_updated_odds omitted on purpose
+                    "bookmaker": "draftkings",
+                }
+            ]
+        )
+
+        self.assertGreaterEqual(len(fake_db._batch.set_calls), 2)
+        for call in fake_db._batch.set_calls:
+            ts = call["data"]["oddsUpdatedAt"]
+            self.assertIsInstance(ts, str)
+            self.assertTrue(ts.endswith("Z"))
+
+
+class OddsServiceExtractTests(unittest.TestCase):
+    def test_extract_odds_missing_spreads_does_not_crash(self):
+        _install_google_firestore_stubs()
+
+        odds_service = importlib.import_module("service.odds_service")
+        importlib.reload(odds_service)
+
+        raw = {
+            "id": "game-1",
+            "home_team": "Home",
+            "away_team": "Away",
+            "bookmakers": [
+                {
+                    "key": "draftkings",
+                    "title": "DraftKings",
+                    "last_update": "2025-12-18T00:00:00Z",
+                    "markets": [
+                        {
+                            "key": "h2h",
+                            "outcomes": [
+                                {"name": "Home", "price": -110},
+                                {"name": "Away", "price": 100},
+                            ],
+                        }
+                        # spreads omitted
+                    ],
+                }
+            ],
+        }
+
+        extracted = odds_service.extract_odds(raw)
+        self.assertIsNotNone(extracted)
+        self.assertEqual(extracted["gameId"], "game-1")
+        self.assertEqual(extracted["home_ml"], -110)
+        self.assertEqual(extracted["away_ml"], 100)
+        self.assertIsNone(extracted["home_spread"])
+        self.assertIsNone(extracted["home_spread_price"])
+        self.assertIsNone(extracted["away_spread"])
+        self.assertIsNone(extracted["away_spread_price"])
+
+    def test_extract_odds_missing_bookmakers_returns_none(self):
+        _install_google_firestore_stubs()
+
+        odds_service = importlib.import_module("service.odds_service")
+        importlib.reload(odds_service)
+
+        raw = {"id": "game-1", "home_team": "Home", "away_team": "Away", "bookmakers": []}
+        self.assertIsNone(odds_service.extract_odds(raw))
 
 
 if __name__ == "__main__":

@@ -11,6 +11,39 @@ EVENTS_COLLECTION = "events"
 # Per-event odds history subcollection name (requested by user)
 HISTORY_SUBCOLLECTION = "history"
 
+def _to_iso_utc_z(value: Any) -> str:
+    """
+    Normalize a timestamp-like value to an ISO-8601 UTC string ending with 'Z'.
+
+    Accepts:
+      - None: uses current time (UTC)
+      - datetime: converted to UTC
+      - str: returned as-is if already endswith 'Z', otherwise normalize '+00:00' to 'Z'
+    """
+    if value is None:
+        dt = datetime.now(timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
+
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
+
+    if isinstance(value, str):
+        s = value.strip()
+        if s.endswith("Z"):
+            return s
+        # Common variant if parsed earlier: "...+00:00"
+        if s.endswith("+00:00"):
+            return s[:-6] + "Z"
+        return s
+
+    # Last resort: stringify
+    return str(value)
+
 
 def upsert_current_odds(
     updates: Iterable[dict[str, Any]],
@@ -28,7 +61,7 @@ def upsert_current_odds(
       - home_spread_price: Any (JSON-serializable)
       - away_spread: Any (JSON-serializable)
       - away_spread_price: Any (JSON-serializable)
-      - last_updated_odds: datetime (optional; defaults to now UTC)
+      - last_updated_odds: ISO-8601 string (optional; defaults to now UTC in ISO-8601)
     """
     db = get_db()
     batch = db.batch()
@@ -50,6 +83,8 @@ def upsert_current_odds(
         current_away_spread_price = u.get("away_spread_price")
         last_updated_odds = u.get("last_updated_odds")
         bookmaker = u.get("bookmaker")
+        # Always store oddsUpdatedAt as ISO-8601 UTC '...Z' string for consistency.
+        last_updated_odds = _to_iso_utc_z(last_updated_odds)
 
         # 1) Update event doc with current values
         batch.set(

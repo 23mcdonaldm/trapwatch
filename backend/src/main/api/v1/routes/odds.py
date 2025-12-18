@@ -27,9 +27,9 @@ def parse_league(league: str) -> LeagueKey:
 
 # Get odds for a specific league
 @router.get("/{league}", response_model=OddsResponse)
-async def odds_league_route(league: str):
+async def odds_league_route(league: str, dry_run: bool = False):
     lk = parse_league(league)
-    fetched, upserted = await odds_service.get_odds(lk.value)
+    fetched, upserted = await odds_service.get_odds(lk.value, dry_run=dry_run)
     return OddsResponse(
         leagueKey=lk.value,
         fetchedCount=fetched,
@@ -38,8 +38,8 @@ async def odds_league_route(league: str):
 
 # Get all events
 @router.get("", response_model=OddsResponse)
-async def odds_all_route():
-    fetched, upserted = await odds_service.get_all_odds()
+async def odds_all_route(dry_run: bool = False):
+    fetched, upserted = await odds_service.get_all_odds(dry_run=dry_run)
     return OddsResponse(
         leagueKey=LeagueKey.ALL.value,
         fetchedCount=fetched,

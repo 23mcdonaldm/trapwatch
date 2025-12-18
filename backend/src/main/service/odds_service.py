@@ -11,35 +11,57 @@ def extract_odds(raw: dict) -> dict | None:
     home_ml = None
     away_ml = None
     home_spread = None
+    home_spread_price = None
     away_spread = None
+    away_spread_price = None
     last_updated_odds = None
 
-    bookmaker = raw["bookmakers"][0] or []
-    for market in bookmaker["markets"] or []:
-        if market["key"] == "h2h":
-            if market["outcomes"][0]["name"] == raw["home_team"]:
-                home_ml = market["outcomes"][0]["price"]
-                away_ml = market["outcomes"][1]["price"]
-            elif market["outcomes"][1]["name"] == raw["home_team"]:
-                home_ml = market["outcomes"][1]["price"]
-                away_ml = market["outcomes"][0]["price"]
+    # Be defensive: Odds API payloads can omit bookmakers/markets/outcomes.
+    bookmakers = raw.get("bookmakers") or []
+    if not bookmakers:
+        return None
+
+    bookmaker = None
+    for b in bookmakers:
+        if (b or {}).get("markets"):
+            bookmaker = b
+            break
+    if not bookmaker:
+        return None
+
+    markets = bookmaker.get("markets") or []
+    home_team = raw.get("home_team")
+
+    try:
+        for market in markets:
+            key = (market or {}).get("key")
+            outcomes = (market or {}).get("outcomes") or []
+            if key not in {"h2h", "spreads"} or len(outcomes) < 2 or not home_team:
+                continue
+
+            # Find which outcome corresponds to the home team
+            o0, o1 = outcomes[0], outcomes[1]
+            if o0.get("name") == home_team:
+                home_outcome, away_outcome = o0, o1
+            elif o1.get("name") == home_team:
+                home_outcome, away_outcome = o1, o0
             else:
-                raise ValueError(f"Home team not found in h2h market: {raw['home_team']}")
-            
-        elif market["key"] == "spreads":
-            if market["outcomes"][0]["name"] == raw["home_team"]:
-                home_spread = market["outcomes"][0]["point"]
-                home_spread_price = market["outcomes"][0]["price"]
-                away_spread = market["outcomes"][1]["point"]
-                away_spread_price = market["outcomes"][1]["price"]
-            elif market["outcomes"][1]["name"] == raw["home_team"]:
-                home_spread = market["outcomes"][1]["point"]
-                home_spread_price = market["outcomes"][1]["price"]
-                away_spread = market["outcomes"][0]["point"]
-                away_spread_price = market["outcomes"][0]["price"]
-            else:
-                raise ValueError(f"Home team not found in spreads market: {raw['home_team']}")
-    last_updated_odds = bookmaker["last_update"]
+                continue
+
+            if key == "h2h":
+                home_ml = home_outcome.get("price")
+                away_ml = away_outcome.get("price")
+            elif key == "spreads":
+                home_spread = home_outcome.get("point")
+                home_spread_price = home_outcome.get("price")
+                away_spread = away_outcome.get("point")
+                away_spread_price = away_outcome.get("price")
+    except Exception:
+        # Never let a single malformed event take down the whole /odds call.
+        return None
+
+    # Odds API provides `last_update` as an ISO string; keep it as-is.
+    last_updated_odds = bookmaker.get("last_update")
     return {
         "gameId": raw["id"],
         "home_ml": home_ml,
@@ -49,17 +71,22 @@ def extract_odds(raw: dict) -> dict | None:
         "away_spread": away_spread,
         "away_spread_price": away_spread_price,
         "last_updated_odds": last_updated_odds,
-        "bookmaker": bookmaker["key"] or bookmaker["title"],
+        "bookmaker": bookmaker.get("key") or bookmaker.get("title"),
     }
 
-async def get_odds(league_key: str) -> tuple[int, int]:
+async def get_odds(league_key: str, dry_run: bool = False) -> tuple[int, int]:
     raw_events = await fetch_odds(league_key)
-    normalized = [extract_odds(e) for e in raw_events]
+    normalized = [x for x in (extract_odds(e) for e in raw_events) if x is not None]
+
+    # For local/dev usage you may want to fetch without persisting to Firestore (e.g. if
+    # credentials aren't available). Caller can choose to skip persistence.
+    if dry_run:
+        return (len(raw_events), 0)
 
     upserted = upsert_current_odds(normalized)
     return (len(raw_events), upserted)
 
-async def get_all_odds() -> tuple[int, int]:
+async def get_all_odds(dry_run: bool = False) -> tuple[int, int]:
     """
     Fetch events for all leagues (excluding ALL) and upsert them.
     Returns: (fetched_total, upserted_total)
@@ -70,7 +97,7 @@ async def get_all_odds() -> tuple[int, int]:
     for league in LeagueKey:
         if league == LeagueKey.ALL:
             continue
-        fetched, upserted = await get_odds(league.value)
+        fetched, upserted = await get_odds(league.value, dry_run=dry_run)
         fetched_total += fetched
         upserted_total += upserted
 
