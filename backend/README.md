@@ -20,17 +20,20 @@ odds_api_key=YOUR_ODDS_API_KEY
 
 in computer terminal:
 
+```
 gcloud auth application-default login
 gcloud config set project YOUR_GCP_PROJECT_ID
-
+```
 
 ### 2) Run backend
 
+```
 cd backend/src/main
-
 python -m uvicorn main:app --reload
-
+```
 
 ### 3) Open Server
+
+in chrome or any other browser:
 
 localhost:8000
