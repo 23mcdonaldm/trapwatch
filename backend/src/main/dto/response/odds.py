@@ -1,9 +1,7 @@
 from pydantic import BaseModel
 
 
-class EventsResponse(BaseModel):
+class OddsResponse(BaseModel):
     leagueKey: str
     fetchedCount: int
     upsertedCount: int
-
-

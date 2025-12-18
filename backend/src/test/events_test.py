@@ -46,8 +46,11 @@ class EventsLeagueUrlTests(unittest.IsolatedAsyncioTestCase):
                 requested_urls.append(url)
                 return _FakeResponse([])
 
-        # Provide a minimal `httpx` module so tests can run even if httpx isn't installed yet.
-        sys.modules["httpx"] = types.SimpleNamespace(AsyncClient=FakeAsyncClient)
+        # Patch only `httpx.AsyncClient` (do NOT replace the whole httpx module, since
+        # FastAPI/Starlette's TestClient relies on many other httpx symbols).
+        import httpx
+        orig_async_client = httpx.AsyncClient
+        httpx.AsyncClient = FakeAsyncClient
 
         # Provide minimal stubs for google-cloud imports so importing repository modules doesn't fail.
         google_mod = types.ModuleType("google")
@@ -61,10 +64,13 @@ class EventsLeagueUrlTests(unittest.IsolatedAsyncioTestCase):
         sys.modules["google.cloud.firestore"] = google_cloud_firestore_mod
 
         # Import/reload inside test so env vars and stubbed httpx are present
-        events_service = importlib.import_module("service.events_service")
-        importlib.reload(events_service)
+        try:
+            events_service = importlib.import_module("service.events_service")
+            importlib.reload(events_service)
 
-        await events_service.fetch_events(league_key)
+            await events_service.fetch_events(league_key)
+        finally:
+            httpx.AsyncClient = orig_async_client
 
         self.assertEqual(len(requested_urls), 1)
         expected = f"{os.environ['odds_api_base_url']}/sports/{league_key}/events?apiKey={os.environ['odds_api_key']}"
