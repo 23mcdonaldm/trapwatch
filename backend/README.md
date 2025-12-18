@@ -18,6 +18,8 @@ odds_api_key=YOUR_ODDS_API_KEY
 
 ### 2) Run backend
 
+cd backend/src/main
+
 python -m uvicorn main:app --reload
 
 
