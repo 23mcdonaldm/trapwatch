@@ -14,6 +14,7 @@ sys.path.insert(0, str(BACKEND_MAIN_DIR))
 os.environ.setdefault("gcp_project_id", "test-project")
 os.environ.setdefault("odds_api_key", "test-odds-key")
 os.environ.setdefault("odds_api_base_url", "https://api.the-odds-api.com/v4")
+os.environ.setdefault("google_sheets_base_url", "https://docs.google.com/spreadsheets/d")
 
 
 def _install_google_firestore_stubs():

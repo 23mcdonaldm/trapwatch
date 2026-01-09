@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     odds_api_key: str
     odds_api_base_url: str = "https://api.the-odds-api.com/v4"
 
+    # Google Sheets (for CSV odds import) - must be provided via env (no hardcoded default)
+    google_sheets_base_url: str
+    nfl_gid: str | None = None
+    ncaaf_gid: str | None = None
+    nba_gid: str | None = None
+    ncaab_gid: str | None = None
+    mlb_gid: str | None = None
+    nhl_gid: str | None = None
+
     # Security for scheduler-triggered endpoints
     scheduler_secret: str = ""
 
