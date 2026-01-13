@@ -137,7 +137,6 @@ export const TrapHistory: React.FC<{ game: Game }> = ({ game }) => {
                   quality: 1.0, 
                   pixelRatio: 2, // Higher pixel ratio for sharper text
                   cacheBust: true,
-                  useCORS: true,
                   skipAutoScale: true // Helps with mobile scaling issues
               });
               setPreviewImage(dataUrl);

@@ -5,7 +5,7 @@ import { MOCK_GAMES } from '../constants';
 import { FilterState, TrapLabel } from '../types';
 import TrapGameCard from '../components/TrapGameCard';
 import { FiltersBar } from '../components/FiltersBar';
-import { storageService } from '../services/storage';
+import { useAppSelector } from '../store/hooks';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +16,8 @@ const Dashboard: React.FC = () => {
     label: 'ALL'
   });
   
-  const isAuthenticated = storageService.isAuthenticated();
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const userData = useAppSelector((state) => state.auth.userData);
 
   const groupedGames = useMemo(() => {
     const allFiltered = MOCK_GAMES.filter(game => {
@@ -96,34 +97,51 @@ const Dashboard: React.FC = () => {
                    <span className="hidden md:inline font-bold text-sm text-slate-700 dark:text-slate-200">Scoreboard</span>
              </button>
 
-             {/* Mobile: Get Alerts Icon (Only if not auth) */}
-             {!isAuthenticated && (
-                <button 
-                  onClick={() => navigate('/alerts')}
-                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 border border-orange-100 dark:border-orange-800"
-                >
-                  <Bell size={18} />
-                </button>
-             )}
-
-             {/* Desktop: Actions */}
-             {!isAuthenticated ? (
+             {/* Auth-dependent buttons */}
+             {isAuthenticated ? (
+               /* Profile Button (when signed in) */
                <button 
-                 onClick={() => navigate('/alerts')}
-                 className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-500 font-bold text-sm hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                 onClick={() => navigate('/settings')}
+                 className="flex items-center gap-2 pl-4 border-l border-slate-200 dark:border-slate-800 hover:opacity-75 transition-opacity"
+                 aria-label="Profile"
                >
-                 <Bell size={16} />
-                 <span>Get alerts</span>
+                 {userData?.avatarUrl ? (
+                   <img 
+                     src={userData.avatarUrl} 
+                     alt={userData.name || 'Profile'} 
+                     className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 object-cover"
+                   />
+                 ) : (
+                   <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                     {userData?.name ? (
+                       <span className="text-xs font-bold uppercase">{userData.name.charAt(0)}</span>
+                     ) : (
+                       <User size={16} />
+                     )}
+                   </div>
+                 )}
                </button>
              ) : (
-                <button 
-                  onClick={() => navigate('/settings')}
-                  className="flex items-center gap-2 pl-4 border-l border-slate-200 dark:border-slate-800 hover:opacity-75 transition-opacity"
-                >
-                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                      <User size={16} />
-                    </div>
-                </button>
+               /* Get Alerts Button (when not signed in) */
+               <>
+                 {/* Mobile: Get Alerts Icon */}
+                 <button 
+                   onClick={() => navigate('/alerts')}
+                   className="md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-500 border border-orange-100 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
+                   aria-label="Get Alerts"
+                 >
+                   <Bell size={18} />
+                 </button>
+                 
+                 {/* Desktop: Get Alerts Button */}
+                 <button 
+                   onClick={() => navigate('/alerts')}
+                   className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-orange-200 dark:border-orange-800 text-orange-600 dark:text-orange-500 font-bold text-sm hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                 >
+                   <Bell size={16} />
+                   <span>Get alerts</span>
+                 </button>
+               </>
              )}
           </div>
 

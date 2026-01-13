@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from api.v1.routes.events import router as events_router
 from api.v1.routes.odds import router as odds_router
 from api.v1.routes.csv_odds import router as csv_odds_router
+from api.v1.routes.traps import router as traps_router
 
 def create_app() -> FastAPI:
     app = FastAPI(title="TrapWatch Backend", version="0.1.0")
@@ -11,6 +12,7 @@ def create_app() -> FastAPI:
     app.include_router(events_router, prefix="/api/v1")
     app.include_router(odds_router, prefix="/api/v1")
     app.include_router(csv_odds_router, prefix="/api/v1")
+    app.include_router(traps_router, prefix="/api/v1")
     # app.include_router(tasks_router, prefix="/api")
 
     @app.get("/")

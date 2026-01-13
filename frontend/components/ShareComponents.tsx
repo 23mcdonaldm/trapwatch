@@ -375,7 +375,6 @@ export const ShareButtons: React.FC<{ game: Game }> = ({ game }) => {
           quality: 1.0, 
           pixelRatio: 1, 
           cacheBust: true, 
-          useCORS: true 
       });
       
       const link = document.createElement('a');
