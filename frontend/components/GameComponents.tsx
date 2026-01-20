@@ -7,6 +7,102 @@ import { useNavigate } from 'react-router-dom';
 import * as htmlToImage from 'html-to-image';
 import { ShareStatusChangeCard, ShareModal } from './ShareComponents';
 
+// --- Odds Overview ---
+export const OddsOverview: React.FC<{ game: Game }> = ({ game }) => {
+  const favoriteTeam = game.isHomeFavorite ? game.homeTeam : game.awayTeam;
+  const underdogTeam = game.isHomeFavorite ? game.awayTeam : game.homeTeam;
+  
+  // Parse moneyline - in production, API should provide both MLs
+  const favoriteML = game.odds.moneyline;
+  // Calculate approximate underdog ML from favorite ML
+  // Formula: if favorite is -X, underdog ≈ +((X/100) * 100) with some rounding
+  let underdogML = '+100';
+  if (favoriteML.startsWith('-')) {
+    const favNum = Math.abs(parseInt(favoriteML));
+    // Simplified: -340 → ~+280, -175 → ~+150, etc.
+    if (favNum < 100) {
+      underdogML = `+${Math.round(10000 / favNum)}`;
+    } else {
+      // For favorites > -100, approximate: -340 → +280 (roughly favNum * 0.82)
+      underdogML = `+${Math.round(favNum * 0.82)}`;
+    }
+  } else {
+    // If favorite is positive, underdog is negative
+    const favNum = parseInt(favoriteML);
+    underdogML = `-${Math.round(favNum * 1.22)}`;
+  }
+  
+  // Parse spread to show both sides
+  const spreadValue = game.odds.spread.replace(/[+-]/, '');
+  const favoriteSpread = game.odds.spread;
+  const underdogSpread = game.odds.spread.startsWith('-') 
+    ? `+${spreadValue}` 
+    : `-${spreadValue}`;
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 p-1.5 rounded-full border border-slate-100 dark:border-slate-700">
+          <BarChart2 size={16} />
+        </div>
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Game Odds</h4>
+      </div>
+      
+      <div className="space-y-3">
+        {/* Moneyline & Spread in a grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 border border-slate-100 dark:border-slate-700">
+            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Moneyline</div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{favoriteTeam.shortName}</span>
+                <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">{favoriteML}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{underdogTeam.shortName}</span>
+                <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">{underdogML}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Spread */}
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 border border-slate-100 dark:border-slate-700">
+            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Spread</div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{favoriteTeam.shortName}</span>
+                <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">{favoriteSpread}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{underdogTeam.shortName}</span>
+                <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">{underdogSpread}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Total */}
+        {game.odds.total && (
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+            <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Total</div>
+            <div className="flex items-center justify-center gap-3">
+              <div className="text-center">
+                <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Over</div>
+                <div className="text-sm font-bold font-mono text-slate-900 dark:text-white">{game.odds.total}</div>
+              </div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+              <div className="text-center">
+                <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Under</div>
+                <div className="text-sm font-bold font-mono text-slate-900 dark:text-white">{game.odds.total}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- Triggers Pills ---
 export const TriggersPills: React.FC<{ triggers: Trigger[]; label: TrapLabel }> = ({ triggers, label }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Game, TrapLabel, TrapHistoryEvent } from '../types';
-import { TriggersPills, PeopleSayingSection, CommentsSection, VoteBar, TrapHistory } from './GameComponents';
+import { TriggersPills, PeopleSayingSection, CommentsSection, VoteBar, TrapHistory, OddsOverview } from './GameComponents';
 import { ShareButtons } from './ShareComponents';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
@@ -139,13 +139,25 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                </div>
             </div>
 
-            {/* Right: Spread, Badge, Controls */}
+            {/* Right: Market Odds, Badge, Controls */}
             <div className="flex items-center gap-3 sm:gap-6 shrink-0 pt-3 sm:pt-0">
-                {/* Spread (Hidden on mobile) */}
+                {/* Market Odds (Hidden on mobile) - Shows the market that has the trap */}
                 <div className="hidden sm:block text-right shrink-0">
-                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Favorite</div>
+                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">
+                      {game.trapMarket === 'Spread' ? 'Spread' : game.trapMarket === 'Total' ? 'Total' : 'Moneyline'}
+                    </div>
                     <div className="text-lg font-bold text-slate-900 dark:text-white font-mono tracking-tight">
-                      {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} {game.odds.spread}
+                      {game.trapMarket === 'Spread' ? (
+                        <>
+                          {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} {game.odds.spread}
+                        </>
+                      ) : game.trapMarket === 'Total' ? (
+                        game.odds.total
+                      ) : (
+                        <>
+                          {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} {game.odds.moneyline}
+                        </>
+                      )}
                     </div>
                 </div>
 
@@ -188,7 +200,9 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                   style={{ '--fav-color': favoriteColor } as React.CSSProperties}
                 >
                     <div className="absolute inset-0.5 sm:inset-1 rounded-lg opacity-[0.06] dark:opacity-20 transition-colors bg-[var(--fav-color)]"></div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 relative z-10 opacity-70 text-[var(--fav-color)] dark:text-slate-400">Public Money</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 relative z-10 opacity-70 text-[var(--fav-color)] dark:text-slate-400">
+                      {!game.trapMarket || game.trapMarket === 'Moneyline' ? 'Moneyline Handle' : game.trapMarket === 'Spread' ? 'Spread Handle' : 'Total Handle'}
+                    </div>
                     <div className="text-2xl sm:text-4xl font-black tracking-tighter relative z-10 text-[var(--fav-color)] dark:text-white">{game.publicMoneyPercent}%</div>
                 </div>
                 
@@ -198,32 +212,56 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                   style={{ '--fav-color': favoriteColor } as React.CSSProperties}
                 >
                     <div className="absolute inset-0.5 sm:inset-1 rounded-lg opacity-[0.06] dark:opacity-20 transition-colors bg-[var(--fav-color)]"></div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 relative z-10 opacity-70 text-[var(--fav-color)] dark:text-slate-400">Public Bets</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 relative z-10 opacity-70 text-[var(--fav-color)] dark:text-slate-400">
+                      {!game.trapMarket || game.trapMarket === 'Moneyline' ? 'Moneyline Bets' : game.trapMarket === 'Spread' ? 'Spread Bets' : 'Total Bets'}
+                    </div>
                     <div className="text-2xl sm:text-4xl font-black tracking-tighter relative z-10 text-[var(--fav-color)] dark:text-white">{game.publicBetsPercent}%</div>
                 </div>
                 
-                {/* Moneyline (Desktop) */}
+                {/* Market Odds (Desktop) - Shows the market that triggered the trap */}
                 <div 
                   className="hidden sm:block flex-1 text-center border-l border-slate-100 dark:border-slate-700 px-2 py-3 relative group"
                   style={{ '--fav-color': favoriteColor } as React.CSSProperties}
                 >
                      <div className="absolute inset-1 rounded-lg opacity-[0.06] dark:opacity-20 transition-colors bg-[var(--fav-color)]"></div>
-                     <div className="text-[10px] font-bold uppercase tracking-wider mb-1 relative z-10 opacity-70 text-[var(--fav-color)] dark:text-slate-400">Moneyline</div>
-                     <div className="text-2xl font-bold font-mono relative z-10 mt-1 text-[var(--fav-color)] dark:text-white tracking-tight">{game.odds.moneyline}</div>
+                     <div className="text-[10px] font-bold uppercase tracking-wider mb-1 relative z-10 opacity-70 text-[var(--fav-color)] dark:text-slate-400">
+                       {!game.trapMarket || game.trapMarket === 'Moneyline' ? 'Moneyline' : game.trapMarket === 'Spread' ? 'Spread' : 'Total'}
+                     </div>
+                     <div className="text-2xl font-bold font-mono relative z-10 mt-1 text-[var(--fav-color)] dark:text-white tracking-tight">
+                       {!game.trapMarket || game.trapMarket === 'Moneyline' ? game.odds.moneyline : game.trapMarket === 'Spread' ? game.odds.spread : game.odds.total}
+                     </div>
                 </div>
             </div>
             
             {/* Mobile Odds Info (Visible only on mobile expanded) */}
             <div className="sm:hidden mb-6 p-4 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl flex justify-between items-center shadow-sm">
                 <div>
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Favorite</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                      {game.trapMarket === 'Spread' ? 'Spread' : game.trapMarket === 'Total' ? 'Total' : game.trapMarket === 'Moneyline' ? 'Moneyline' : 'Favorite'}
+                    </div>
                     <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
-                        {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} <span className="font-mono ml-1 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{game.odds.spread}</span>
+                        {game.trapMarket === 'Spread' ? (
+                          <span className="font-mono">{game.odds.spread}</span>
+                        ) : game.trapMarket === 'Total' ? (
+                          <span className="font-mono">{game.odds.total}</span>
+                        ) : game.trapMarket === 'Moneyline' ? (
+                          <>
+                            {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} <span className="font-mono ml-1 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{game.odds.moneyline}</span>
+                          </>
+                        ) : (
+                          <>
+                            {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} <span className="font-mono ml-1 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{game.odds.spread}</span>
+                          </>
+                        )}
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Moneyline</div>
-                    <div className="text-base font-bold font-mono text-[var(--fav-color)] dark:text-white mt-1" style={{ '--fav-color': favoriteColor } as React.CSSProperties}>{game.odds.moneyline}</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                      {game.trapMarket === 'Spread' ? 'Spread' : game.trapMarket === 'Total' ? 'Total' : game.trapMarket === 'Moneyline' ? 'Moneyline' : 'Moneyline'}
+                    </div>
+                    <div className="text-base font-bold font-mono text-[var(--fav-color)] dark:text-white mt-1" style={{ '--fav-color': favoriteColor } as React.CSSProperties}>
+                      {game.trapMarket === 'Spread' ? game.odds.spread : game.trapMarket === 'Total' ? game.odds.total : game.odds.moneyline}
+                    </div>
                 </div>
             </div>
 
@@ -233,21 +271,24 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                 {/* 1. Triggers */}
                 <TriggersPills triggers={game.trapTriggers} label={game.trapLabel} />
 
-                {/* 2. History */}
-                {game.trapHistory && <TrapHistory game={game} />}
+                {/* 2. Odds Overview */}
+                <OddsOverview game={game} />
 
-                {/* 3. People Saying */}
+                {/* 3. History */}
+                {/* {game.trapHistory && <TrapHistory game={game} />} */}
+
+                {/* 4. People Saying */}
                 <PeopleSayingSection posts={game.whatPeopleAreSaying} />
 
-                {/* 4. Community Consensus / Vote Bar */}
+                {/* 5. Community Consensus / Vote Bar */}
                 <VoteBar gameId={game.id} />
                 
-                {/* 5. Comments */}
+                {/* 6. Comments */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
                   <CommentsSection gameId={game.id} previewMode={!isDetailView} />
                 </div>
 
-                {/* 6. Share Actions */}
+                {/* 7. Share Actions */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
                    <div className="flex items-center gap-2 mb-3">
                      <Share2 size={14} className="text-slate-400"/>

@@ -88,12 +88,28 @@ async def get_all_odds(dry_run: bool = False) -> tuple[int, int]:
                     # Get the line value (the part after the + or -)
                     line_str = parts[1].strip()
                     line_value = float(line_str)
-                    # Determine if it was + or - by checking which one appears in the original string
-                    # Store as negative if it was a minus sign
-                    if "-" in row["Selection"]:
-                        current_odds["Spread"]["Line"] = -line_value
+                    # The line should always be from the home team's perspective:
+                    # - Negative if home team is favored
+                    # - Positive if away team is favored
+                    is_home_selection = selection == "Home"
+                    is_negative_in_selection = "-" in row["Selection"]
+                    
+                    if is_home_selection:
+                        # If selection is home team:
+                        #   "-" means home team favored -> line is negative
+                        #   "+" means home team underdog -> line is positive
+                        if is_negative_in_selection:
+                            current_odds["Spread"]["Line"] = -line_value
+                        else:
+                            current_odds["Spread"]["Line"] = line_value
                     else:
-                        current_odds["Spread"]["Line"] = line_value
+                        # If selection is away team:
+                        #   "-" means away team favored -> home team underdog -> line is positive
+                        #   "+" means away team underdog -> home team favored -> line is negative
+                        if is_negative_in_selection:
+                            current_odds["Spread"]["Line"] = line_value
+                        else:
+                            current_odds["Spread"]["Line"] = -line_value
             if market == "Total":
                 current_odds["Total"]["Line"] = float(row["Selection"].split(" ")[1])
                 if "Over" in row["Selection"]:

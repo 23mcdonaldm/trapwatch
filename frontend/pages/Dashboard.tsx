@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info } from 'lucide-react';
+import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_GAMES } from '../constants';
-import { FilterState, TrapLabel } from '../types';
+import { FilterState, TrapLabel, Game } from '../types';
 import TrapGameCard from '../components/TrapGameCard';
 import { FiltersBar } from '../components/FiltersBar';
 import { useAppSelector } from '../store/hooks';
+import { apiService } from '../services/api';
+import { mapApiFeedToGames } from '../utils/apiMapper';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -15,28 +17,71 @@ const Dashboard: React.FC = () => {
     search: '',
     label: 'ALL'
   });
+  const [groupedGames, setGroupedGames] = useState<{
+    [TrapLabel.CITY]: Game[];
+    [TrapLabel.DETECTED]: Game[];
+    [TrapLabel.POTENTIAL]: Game[];
+  }>({
+    [TrapLabel.CITY]: [],
+    [TrapLabel.DETECTED]: [],
+    [TrapLabel.POTENTIAL]: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const userData = useAppSelector((state) => state.auth.userData);
 
-  const groupedGames = useMemo(() => {
-    const allFiltered = MOCK_GAMES.filter(game => {
-      const matchesLeague = filters.league === 'ALL' || game.league === filters.league;
-      const matchesLabel = filters.label === 'ALL' || game.trapLabel === filters.label;
-      const matchesSearch = filters.search === '' || 
-        game.homeTeam.name.toLowerCase().includes(filters.search.toLowerCase()) || 
-        game.awayTeam.name.toLowerCase().includes(filters.search.toLowerCase());
-      
-      return matchesLeague && matchesLabel && matchesSearch;
-    }).sort((a, b) => b.severityScore - a.severityScore);
+  // Fetch games from API
+  useEffect(() => {
+    const fetchGames = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const feedData = await apiService.getFeed();
+        const mappedGames = mapApiFeedToGames(feedData);
+        setGroupedGames(mappedGames);
+      } catch (err) {
+        console.error('Failed to fetch games:', err);
+        setError('Failed to load games');
+        // Fallback to empty groups on error
+        setGroupedGames({
+          [TrapLabel.CITY]: [],
+          [TrapLabel.DETECTED]: [],
+          [TrapLabel.POTENTIAL]: [],
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGames();
+  }, []);
+
+  // Apply filters to the already-grouped games
+  const filteredGames = useMemo(() => {
+    const applyFilters = (games: Game[]) => {
+      return games.filter(game => {
+        const matchesLeague = filters.league === 'ALL' || game.league === filters.league;
+        const matchesSearch = filters.search === '' || 
+          game.homeTeam.name.toLowerCase().includes(filters.search.toLowerCase()) || 
+          game.awayTeam.name.toLowerCase().includes(filters.search.toLowerCase());
+        
+        return matchesLeague && matchesSearch;
+      });
+    };
+
+    const filtered = {
+      [TrapLabel.CITY]: applyFilters(groupedGames[TrapLabel.CITY]),
+      [TrapLabel.DETECTED]: applyFilters(groupedGames[TrapLabel.DETECTED]),
+      [TrapLabel.POTENTIAL]: applyFilters(groupedGames[TrapLabel.POTENTIAL]),
+    };
 
     return {
-        [TrapLabel.CITY]: allFiltered.filter(g => g.trapLabel === TrapLabel.CITY),
-        [TrapLabel.DETECTED]: allFiltered.filter(g => g.trapLabel === TrapLabel.DETECTED),
-        [TrapLabel.POTENTIAL]: allFiltered.filter(g => g.trapLabel === TrapLabel.POTENTIAL),
-        total: allFiltered.length
+      ...filtered,
+      total: filtered[TrapLabel.CITY].length + filtered[TrapLabel.DETECTED].length + filtered[TrapLabel.POTENTIAL].length
     };
-  }, [filters]);
+  }, [filters, groupedGames]);
 
   const SectionHeader: React.FC<{ title: string; subtitle: string; icon?: React.ReactNode; colorClass: string }> = ({ title, subtitle, icon, colorClass }) => {
     const [showTooltip, setShowTooltip] = useState(false);
@@ -166,7 +211,22 @@ const Dashboard: React.FC = () => {
 
       {/* --- Games List Segmented --- */}
       <div className="max-w-5xl mx-auto px-4 pb-12 relative z-10">
-        {groupedGames.total === 0 ? (
+        {loading ? (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
+            <Loader2 size={32} className="animate-spin mx-auto text-orange-500 mb-4" />
+            <p className="text-slate-400 font-medium">Loading games...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
+            <p className="text-slate-400 font-medium mb-2">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 text-orange-600 font-bold hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : filteredGames.total === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
             <p className="text-slate-400 font-medium">No traps found matching your filters.</p>
             <button 
@@ -179,7 +239,7 @@ const Dashboard: React.FC = () => {
         ) : (
             <>
                 {/* Trap City */}
-                {groupedGames[TrapLabel.CITY].length > 0 && (
+                {filteredGames[TrapLabel.CITY].length > 0 && (
                     <section>
                         <SectionHeader 
                             title="Trap City" 
@@ -188,15 +248,15 @@ const Dashboard: React.FC = () => {
                             colorClass="text-[#cc0000]"
                         />
                         <div className="space-y-4">
-                            {groupedGames[TrapLabel.CITY].map(game => (
-                                <TrapGameCard key={game.id} game={game} hideLabel={true} />
+                            {filteredGames[TrapLabel.CITY].map(game => (
+                                <TrapGameCard key={game.id} game={game} />
                             ))}
                         </div>
                     </section>
                 )}
 
                 {/* Trap Detected */}
-                {groupedGames[TrapLabel.DETECTED].length > 0 && (
+                {filteredGames[TrapLabel.DETECTED].length > 0 && (
                     <section>
                         <SectionHeader 
                             title="Trap Detected" 
@@ -205,15 +265,15 @@ const Dashboard: React.FC = () => {
                             colorClass="text-slate-900 dark:text-white"
                         />
                         <div className="space-y-4">
-                            {groupedGames[TrapLabel.DETECTED].map(game => (
-                                <TrapGameCard key={game.id} game={game} hideLabel={true} />
+                            {filteredGames[TrapLabel.DETECTED].map(game => (
+                                <TrapGameCard key={game.id} game={game} />
                             ))}
                         </div>
                     </section>
                 )}
 
                 {/* Potential Trap */}
-                {groupedGames[TrapLabel.POTENTIAL].length > 0 && (
+                {filteredGames[TrapLabel.POTENTIAL].length > 0 && (
                     <section>
                         <SectionHeader 
                             title="Trap Potential" 
@@ -222,8 +282,8 @@ const Dashboard: React.FC = () => {
                             colorClass="text-slate-600 dark:text-slate-400"
                         />
                         <div className="space-y-4">
-                            {groupedGames[TrapLabel.POTENTIAL].map(game => (
-                                <TrapGameCard key={game.id} game={game} hideLabel={true} />
+                            {filteredGames[TrapLabel.POTENTIAL].map(game => (
+                                <TrapGameCard key={game.id} game={game} />
                             ))}
                         </div>
                     </section>

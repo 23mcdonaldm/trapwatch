@@ -7,11 +7,28 @@ export enum League {
   NHL = 'NHL'
 }
 
+// Map API league strings to League enum
+export const LEAGUE_MAP: Record<string, League> = {
+  'americanfootballnfl': League.NFL,
+  'americanfootballncaaf': League.NCAAF,
+  'basketballnba': League.NBA,
+  'basketballncaab': League.NCAAB,
+  'baseballmlb': League.MLB,
+  'icehockeynhl': League.NHL,
+};
+
 export enum TrapLabel {
-  POTENTIAL = 'Potential Trap',
+  POTENTIAL = 'Trap Potential',
   DETECTED = 'Trap Detected',
   CITY = 'Trap City'
 }
+
+// Map API trap status to TrapLabel enum
+export const TRAP_STATUS_MAP: Record<string, TrapLabel> = {
+  'TP': TrapLabel.POTENTIAL,
+  'TD': TrapLabel.DETECTED,
+  'TC': TrapLabel.CITY,
+};
 
 export interface Team {
   name: string;
@@ -24,6 +41,7 @@ export interface Team {
 export interface Odds {
   spread: string;
   moneyline: string;
+  total?: string; // Over/Under total
 }
 
 export interface Trigger {
@@ -67,6 +85,7 @@ export interface Game {
   publicMoneyPercent: number;
   publicBetsPercent: number;
   trapLabel: TrapLabel;
+  trapMarket?: 'Moneyline' | 'Spread' | 'Total'; // Which market triggered the trap
   severityScore: number; // 0-100
   trapTriggers: Trigger[];
   whatPeopleAreSaying: SocialPost[];
@@ -130,4 +149,70 @@ export interface LeaderboardEntry {
   streak: number;
   isCurrentUser: boolean;
   rank: number;
+}
+
+// API Response Types
+export interface ApiOddsSide {
+  betsPct: number;
+  flag: number;
+  odds: number;
+  handlePct: number;
+  diff: number;
+}
+
+export interface ApiTotalOdds {
+  Line: number;
+  Over: ApiOddsSide;
+  Under: ApiOddsSide;
+  Status?: string; // 'TC' | 'TD' | 'TP' (optional, may not always be present)
+  StatusFactors?: ApiStatusFactors;
+}
+
+export interface ApiStatusFactors {
+  Diff?: string;
+}
+
+export interface ApiMoneylineOdds {
+  Home: ApiOddsSide;
+  Away: ApiOddsSide;
+  Status: string; // 'TC' | 'TD' | 'TP'
+  StatusFactors: ApiStatusFactors;
+}
+
+export interface ApiSpreadOdds {
+  Line: number;
+  Home: ApiOddsSide;
+  Away: ApiOddsSide;
+  Status: string; // 'TC' | 'TD' | 'TP'
+  StatusFactors: ApiStatusFactors;
+}
+
+export interface ApiCurrentOdds {
+  Moneyline: ApiMoneylineOdds;
+  Spread: ApiSpreadOdds;
+  Total?: ApiTotalOdds;
+}
+
+export interface ApiGame {
+  status: string;
+  id: string;
+  awayTeam: string;
+  homeTeam: string;
+  league: string;
+  gameTimeET: string;
+  lastUpdatedAt: string;
+  currentOdds: ApiCurrentOdds;
+}
+
+export interface ApiFeedResponse {
+  generatedAt: string;
+  dateET: string;
+  traps: {
+    TC: ApiGame[];
+    TD: ApiGame[];
+    TP: ApiGame[];
+  };
+  by_league: {
+    [key: string]: ApiGame[];
+  };
 }

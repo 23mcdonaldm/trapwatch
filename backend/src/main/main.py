@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from api.v1.routes.events import router as events_router
 from api.v1.routes.odds import router as odds_router
 from api.v1.routes.csv_odds import router as csv_odds_router
@@ -8,6 +9,15 @@ from api.v1.routes.feed import router as feed_router
 
 def create_app() -> FastAPI:
     app = FastAPI(title="TrapWatch Backend", version="0.1.0")
+
+    # CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000"],  # Frontend dev server
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Versioned API prefix
     app.include_router(events_router, prefix="/api/v1")

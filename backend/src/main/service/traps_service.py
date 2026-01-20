@@ -87,12 +87,12 @@ async def detect_trap_diff(current_odds: dict) -> dict:
         
         # Determine status based on difference
         
-        if max_diff > 30:
+        if max_diff > 40:
             if spread.get("status") != TrapStatus.TRAP_CITY.value:
                 result["spread"] = TrapStatus.TRAP_CITY.value
                 result["spread_change"] = TrapChange.UPGRADE.value
                 result["update"] = True
-        elif max_diff > 20:
+        elif max_diff > 30:
             prev_status = spread.get("status")
             if prev_status != TrapStatus.TRAP_DETECTED.value:
                 result["spread"] = TrapStatus.TRAP_DETECTED.value
@@ -101,7 +101,7 @@ async def detect_trap_diff(current_odds: dict) -> dict:
                     result["spread_change"] = TrapChange.DOWNGRADE.value
                 else:
                     result["spread_change"] = TrapChange.UPGRADE.value
-        elif max_diff > 10:
+        elif max_diff > 20:
             prev_status = spread.get("status")
             if prev_status != TrapStatus.TRAP_POTENTIAL.value:
                 result["spread"] = TrapStatus.TRAP_POTENTIAL.value
