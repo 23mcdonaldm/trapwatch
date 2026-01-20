@@ -204,7 +204,10 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
         # update results for 3, want to get status
         # Note: result_data["moneyline"]/["spread"]/["total"] are only set when there's an actual change
         if result_data["moneyline"] is not None:
-            updated_odds_with_trap_status["Moneyline"]["status"] = result_data["moneyline"]
+            updated_odds_with_trap_status["Moneyline"]["Status"] = result_data["moneyline"]
+            if "StatusFactors" not in updated_odds_with_trap_status["Moneyline"]:
+                updated_odds_with_trap_status["Moneyline"]["StatusFactors"] = {}
+            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["Diff"] = result_data["moneyline"]
             if result_data["moneyline"] == TrapStatus.TRAP_CITY.value:
                 TC_count += 1
                 TC_games_ids.append(event_doc.id)
@@ -216,7 +219,10 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
                 TP_games_ids.append(event_doc.id)
 
         if result_data["spread"] is not None:
-            updated_odds_with_trap_status["Spread"]["status"] = result_data["spread"]
+            updated_odds_with_trap_status["Spread"]["Status"] = result_data["spread"]
+            if "StatusFactors" not in updated_odds_with_trap_status["Spread"]:
+                updated_odds_with_trap_status["Spread"]["StatusFactors"] = {}
+            updated_odds_with_trap_status["Spread"]["StatusFactors"]["Diff"] = result_data["spread"]
             if result_data["spread"] == TrapStatus.TRAP_CITY.value:
                 TC_count += 1
                 TC_games_ids.append(event_doc.id)
@@ -228,7 +234,10 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
                 TP_games_ids.append(event_doc.id)
 
         if result_data["total"] is not None:
-            updated_odds_with_trap_status["Total"]["status"] = result_data["total"]
+            updated_odds_with_trap_status["Total"]["Status"] = result_data["total"]
+            if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
+                updated_odds_with_trap_status["Total"]["StatusFactors"] = {}
+            updated_odds_with_trap_status["Total"]["StatusFactors"]["Diff"] = result_data["total"]
             if result_data["total"] == TrapStatus.TRAP_CITY.value:
                 TC_count += 1
                 TC_games_ids.append(event_doc.id)

@@ -98,7 +98,8 @@ class OddsApiRouteTests(unittest.TestCase):
         odds_service = importlib.import_module("service.odds_service")
 
         async def fake_get_odds(league_key: str, dry_run: bool = False):
-            self.assertEqual(league_key, "americanfootball_nfl")
+            # API route should pass the internal LeagueKey value (no underscore)
+            self.assertEqual(league_key, "americanfootballnfl")
             self.assertFalse(dry_run)
             return (3, 2)
 
@@ -112,20 +113,20 @@ class OddsApiRouteTests(unittest.TestCase):
 
         client = TestClient(app)
 
-        # Enum NAME
+        # Enum NAME (NFL)
         r1 = client.get("/api/v1/odds/NFL")
         self.assertEqual(r1.status_code, 200)
         self.assertEqual(
             r1.json(),
-            {"leagueKey": "americanfootball_nfl", "fetchedCount": 3, "upsertedCount": 2},
+            {"leagueKey": "americanfootballnfl", "fetchedCount": 3, "upsertedCount": 2},
         )
 
-        # Enum VALUE
-        r2 = client.get("/api/v1/odds/americanfootball_nfl")
+        # Enum VALUE (internal LeagueKey value, no underscore)
+        r2 = client.get("/api/v1/odds/americanfootballnfl")
         self.assertEqual(r2.status_code, 200)
         self.assertEqual(
             r2.json(),
-            {"leagueKey": "americanfootball_nfl", "fetchedCount": 3, "upsertedCount": 2},
+            {"leagueKey": "americanfootballnfl", "fetchedCount": 3, "upsertedCount": 2},
         )
 
     def test_get_odds_by_league_rejects_unknown_league(self):

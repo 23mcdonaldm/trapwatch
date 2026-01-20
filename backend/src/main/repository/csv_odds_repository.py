@@ -152,8 +152,16 @@ def upsert_csv_odds(
         spread_odds = odds.get("Spread")
         total_odds = odds.get("Total")
 
-        # "{league.value}_{gametime}_{home_team}_{away_team}"
-        league, gametime, home_team, away_team = game_id.split("_")
+        # Expected game_id format:
+        #   "{league}_{gameTimeET}_{homeTeam}_{awayTeam}"
+        # where gameTimeET may itself contain a date and time (e.g. "2026-01-01T19:00").
+        parts = game_id.split("_")
+        if len(parts) != 4:
+            raise ValueError(
+                f"Invalid game_id format '{game_id}'. Expected 4 underscore-separated parts: "
+                "'{league}_{gameTimeET}_{homeTeam}_{awayTeam}'."
+            )
+        league, game_time_et, home_team, away_team = parts
 
         game_ref = db.collection(CSV_ODDS_COLLECTION).document(game_id)
         ml_history_ref = game_ref.collection(ML_HISTORY_SUBCOLLECTION).document()
@@ -177,7 +185,7 @@ def upsert_csv_odds(
         doc_data: dict[str, Any] = {
             "id": game_id,
             "league": league,  # league is already a string from game_id split
-            "gameTimeET": gametime,
+            "gameTimeET": game_time_et,
             "homeTeam": home_team,
             "awayTeam": away_team,
             "status": EventStatus.SCHEDULED.value,
@@ -195,8 +203,9 @@ def upsert_csv_odds(
 
         # 2) Append to ml_history subcollection if ML odds are present
         if ml_odds:
-            home_data = ml_odds.get("Home", {})
-            away_data = ml_odds.get("Away", {})
+            # Accept either TitleCase or lowercase keys depending on source
+            home_data = ml_odds.get("Home") or ml_odds.get("home") or {}
+            away_data = ml_odds.get("Away") or ml_odds.get("away") or {}
 
             history_doc_data = {
                 "runTimestamp": run_timestamp_iso,  # ISO-8601 string
@@ -209,9 +218,9 @@ def upsert_csv_odds(
 
         # 3) Append to spread_history subcollection if spread odds are present
         if spread_odds:
-            line = spread_odds.get("Line")
-            home_data = spread_odds.get("Home", {})
-            away_data = spread_odds.get("Away", {})
+            line = spread_odds.get("Line") if "Line" in spread_odds else spread_odds.get("line")
+            home_data = spread_odds.get("Home") or spread_odds.get("home") or {}
+            away_data = spread_odds.get("Away") or spread_odds.get("away") or {}
 
             history_doc_data = {
                 "runTimestamp": run_timestamp_iso,  # ISO-8601 string
@@ -225,9 +234,9 @@ def upsert_csv_odds(
 
         # 4) Append to total_history subcollection if total odds are present
         if total_odds:
-            line = total_odds.get("Line")
-            over_data = total_odds.get("Over", {})
-            under_data = total_odds.get("Under", {})
+            line = total_odds.get("Line") if "Line" in total_odds else total_odds.get("line")
+            over_data = total_odds.get("Over") or total_odds.get("over") or {}
+            under_data = total_odds.get("Under") or total_odds.get("under") or {}
 
             history_doc_data = {
                 "runTimestamp": run_timestamp_iso,  # ISO-8601 string

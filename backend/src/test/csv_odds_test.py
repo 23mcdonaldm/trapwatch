@@ -83,7 +83,8 @@ class CsvOddsRepositoryTests(unittest.TestCase):
 
         # Test data matching the expected structure
         updates = {
-            "ncaaf_2026-01-01_19:00_alabama_georgia": {
+            # "{league}_{gameTimeET}_{homeTeam}_{awayTeam}"
+            "ncaaf_2026-01-01T19:00_alabama_georgia": {
                 "Moneyline": {
                     "home": {
                         "odds": -140,
@@ -140,10 +141,9 @@ class CsvOddsRepositoryTests(unittest.TestCase):
         main_doc_call = fake_db._batch.set_calls[0]
         self.assertTrue(main_doc_call["merge"])
         main_data = main_doc_call["data"]
-        self.assertEqual(main_data["id"], "ncaaf_2026-01-01_19:00_alabama_georgia")
+        self.assertEqual(main_data["id"], "ncaaf_2026-01-01T19:00_alabama_georgia")
         self.assertEqual(main_data["league"], "ncaaf")
-        self.assertEqual(main_data["gameDateET"], "2026-01-01")
-        self.assertEqual(main_data["gameTimeET"], "19:00")
+        self.assertEqual(main_data["gameTimeET"], "2026-01-01T19:00")
         self.assertEqual(main_data["homeTeam"], "alabama")
         self.assertEqual(main_data["awayTeam"], "georgia")
         self.assertIn("currentOdds", main_data)
@@ -228,7 +228,7 @@ class CsvOddsRepositoryTests(unittest.TestCase):
 
         # Only ML odds, no spread or total
         updates = {
-            "nfl_2026-01-15_20:00_chiefs_bills": {
+            "nfl_2026-01-15T20:00_chiefs_bills": {
                 "Moneyline": {
                     "home": {"odds": -150, "handlePct": 60, "betsPct": 55, "diff": 5, "flag": None},
                     "away": {"odds": 130, "handlePct": 40, "betsPct": 45, "diff": -5, "flag": None},
