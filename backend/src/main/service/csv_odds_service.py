@@ -111,7 +111,10 @@ async def get_all_odds(dry_run: bool = False) -> tuple[int, int]:
                         else:
                             current_odds["Spread"]["Line"] = -line_value
             if market == "Total":
-                current_odds["Total"]["Line"] = float(row["Selection"].split(" ")[1])
+                selection_parts = row["Selection"].split(" ")
+                if len(selection_parts) < 2:
+                    continue  # Skip this row if Total doesn't have two parts
+                current_odds["Total"]["Line"] = float(selection_parts[1])
                 if "Over" in row["Selection"]:
                     selection = "Over"
                 else:

@@ -27,39 +27,35 @@ async def detect_trap_diff(current_odds: dict) -> dict:
     # MONEYLINE 
     # Skip if no Moneyline data
     if moneyline:
-        # Extract diff values from home and away (case-insensitive check)
         home_data = moneyline.get("Home") or moneyline.get("home", {})
-        away_data = moneyline.get("Away") or moneyline.get("away", {})
-        # Get diff values, handle None/empty cases
-        home_diff_raw = home_data.get("diff") if isinstance(home_data, dict) else None
-        away_diff_raw = away_data.get("diff") if isinstance(away_data, dict) else None
-        
-        home_diff = abs(float(home_diff_raw)) if home_diff_raw is not None else 0
-        away_diff = abs(float(away_diff_raw)) if away_diff_raw is not None else 0
-        
-        # Get the maximum difference (highest trap indicator)
-        max_diff = max(home_diff, away_diff)
+        home_handle_pct = home_data.get("handlePct") or 0
+        home_bets_pct = home_data.get("betsPct") or 0
+        sharp_diff = abs(home_handle_pct - home_bets_pct)
+        trap_side = "Home" if home_bets_pct > home_handle_pct else "Away"
         
         # Determine status based on difference
         
-        if max_diff > 30:
+        if sharp_diff > 40:
             if moneyline.get("status") != TrapStatus.TRAP_CITY.value:
                 result["moneyline"] = TrapStatus.TRAP_CITY.value
                 result["moneyline_change"] = TrapChange.UPGRADE.value
+                result["moneyline_side"] = trap_side
                 result["update"] = True
-        elif max_diff > 20:
+        elif sharp_diff > 30:
             prev_status = moneyline.get("status")
             if prev_status != TrapStatus.TRAP_DETECTED.value:
                 result["moneyline"] = TrapStatus.TRAP_DETECTED.value
+                result["moneyline_side"] = trap_side
                 result["update"] = True
                 if prev_status == TrapStatus.TRAP_CITY.value:
                     result["moneyline_change"] = TrapChange.DOWNGRADE.value
                 else:
                     result["moneyline_change"] = TrapChange.UPGRADE.value
-        elif max_diff > 10:
+        elif sharp_diff > 20:
             prev_status = moneyline.get("status")
             if prev_status != TrapStatus.TRAP_POTENTIAL.value:
                 result["moneyline"] = TrapStatus.TRAP_POTENTIAL.value
+                result["moneyline_side"] = trap_side
                 result["update"] = True
                 if prev_status == TrapStatus.TRAP_DETECTED.value or prev_status == TrapStatus.TRAP_CITY.value:
                     result["moneyline_change"] = TrapChange.DOWNGRADE.value
@@ -67,44 +63,41 @@ async def detect_trap_diff(current_odds: dict) -> dict:
                     result["moneyline_change"] = TrapChange.UPGRADE.value
         else:
             result["moneyline"] = None
+            result["moneyline_side"] = None
             result["moneyline_change"] = None
 
     # SPREAD 
     # Skip if no Moneyline data
     if spread:
-        # Extract diff values from home and away (case-insensitive check)
         home_data = spread.get("Home") or spread.get("home", {})
-        away_data = spread.get("Away") or spread.get("away", {})
-        # Get diff values, handle None/empty cases
-        home_diff_raw = home_data.get("diff") if isinstance(home_data, dict) else None
-        away_diff_raw = away_data.get("diff") if isinstance(away_data, dict) else None
-        
-        home_diff = abs(float(home_diff_raw)) if home_diff_raw is not None else 0
-        away_diff = abs(float(away_diff_raw)) if away_diff_raw is not None else 0
-        
-        # Get the maximum difference (highest trap indicator)
-        max_diff = max(home_diff, away_diff)
+        home_handle_pct = home_data.get("handlePct") or 0
+        home_bets_pct = home_data.get("betsPct") or 0
+        sharp_diff = abs(home_handle_pct - home_bets_pct)
+        trap_side = "Home" if home_bets_pct > home_handle_pct else "Away"
         
         # Determine status based on difference
         
-        if max_diff > 40:
+        if sharp_diff > 30:
             if spread.get("status") != TrapStatus.TRAP_CITY.value:
                 result["spread"] = TrapStatus.TRAP_CITY.value
                 result["spread_change"] = TrapChange.UPGRADE.value
+                result["spread_side"] = trap_side
                 result["update"] = True
-        elif max_diff > 30:
+        elif sharp_diff > 20:
             prev_status = spread.get("status")
             if prev_status != TrapStatus.TRAP_DETECTED.value:
                 result["spread"] = TrapStatus.TRAP_DETECTED.value
+                result["spread_side"] = trap_side
                 result["update"] = True
                 if prev_status == TrapStatus.TRAP_CITY.value:
                     result["spread_change"] = TrapChange.DOWNGRADE.value
                 else:
                     result["spread_change"] = TrapChange.UPGRADE.value
-        elif max_diff > 20:
+        elif sharp_diff > 10:
             prev_status = spread.get("status")
             if prev_status != TrapStatus.TRAP_POTENTIAL.value:
                 result["spread"] = TrapStatus.TRAP_POTENTIAL.value
+                result["spread_side"] = trap_side
                 result["update"] = True
                 if prev_status == TrapStatus.TRAP_DETECTED.value or prev_status == TrapStatus.TRAP_CITY.value:
                     result["spread_change"] = TrapChange.DOWNGRADE.value
@@ -112,44 +105,41 @@ async def detect_trap_diff(current_odds: dict) -> dict:
                     result["spread_change"] = TrapChange.UPGRADE.value
         else:
             result["spread"] = None
+            result["spread_side"] = None
             result["spread_change"] = None
     
     # TOTAL 
     # Skip if no Total data
     if total:
-        # Extract diff values from home and away (case-insensitive check)
         home_data = total.get("Home") or total.get("home", {})
-        away_data = total.get("Away") or total.get("away", {})
-        # Get diff values, handle None/empty cases
-        home_diff_raw = home_data.get("diff") if isinstance(home_data, dict) else None
-        away_diff_raw = away_data.get("diff") if isinstance(away_data, dict) else None
-        
-        home_diff = abs(float(home_diff_raw)) if home_diff_raw is not None else 0
-        away_diff = abs(float(away_diff_raw)) if away_diff_raw is not None else 0
-        
-        # Get the maximum difference (highest trap indicator)
-        max_diff = max(home_diff, away_diff)
+        home_handle_pct = home_data.get("handlePct") or 0
+        home_bets_pct = home_data.get("betsPct") or 0
+        sharp_diff = abs(home_handle_pct - home_bets_pct)
+        trap_side = "Home" if home_bets_pct > home_handle_pct else "Away"
         
         # Determine status based on difference
         
-        if max_diff > 30:
+        if sharp_diff > 30:
             if total.get("status") != TrapStatus.TRAP_CITY.value:
                 result["total"] = TrapStatus.TRAP_CITY.value
                 result["total_change"] = TrapChange.UPGRADE.value
+                result["total_side"] = trap_side
                 result["update"] = True
-        elif max_diff > 20:
+        elif sharp_diff > 20:
             prev_status = total.get("status")
             if prev_status != TrapStatus.TRAP_DETECTED.value:
                 result["total"] = TrapStatus.TRAP_DETECTED.value
+                result["total_side"] = trap_side
                 result["update"] = True
                 if prev_status == TrapStatus.TRAP_CITY.value:
                     result["total_change"] = TrapChange.DOWNGRADE.value
                 else:
                     result["total_change"] = TrapChange.UPGRADE.value
-        elif max_diff > 10:
+        elif sharp_diff > 10:
             prev_status = total.get("status")
             if prev_status != TrapStatus.TRAP_POTENTIAL.value:
                 result["total"] = TrapStatus.TRAP_POTENTIAL.value
+                result["total_side"] = trap_side
                 result["update"] = True
                 if prev_status == TrapStatus.TRAP_DETECTED.value or prev_status == TrapStatus.TRAP_CITY.value:
                     result["total_change"] = TrapChange.DOWNGRADE.value
@@ -157,6 +147,168 @@ async def detect_trap_diff(current_odds: dict) -> dict:
                     result["total_change"] = TrapChange.UPGRADE.value
         else:
             result["total"] = None
+            result["total_side"] = None
+            result["total_change"] = None
+
+    return result
+
+async def detect_trap_public_money(current_odds: dict) -> dict:
+    """
+    Detect trap diff for a given event, tracks upgrade or downgrade for future alerts
+    """
+    moneyline = current_odds.get("Moneyline", {})
+    spread = current_odds.get("Spread", {})
+    total = current_odds.get("Total", {})
+
+
+    result = {
+        "moneyline": None,
+        "moneyline_change": None,
+        "spread": None,
+        "spread_change": None,
+        "total": None,
+        "total_change": None,
+        "update": False,
+    }
+    
+
+    # MONEYLINE 
+    # Skip if no Moneyline data
+    if moneyline:
+        home_data = moneyline.get("Home") or moneyline.get("home", {})
+        away_data = moneyline.get("Away") or moneyline.get("away", {})
+        home_odds = home_data.get("odds") or 0
+        away_odds = away_data.get("odds") or 0
+        favorite_side = "Home" if home_odds < away_odds else "Away"
+        if favorite_side == "Home":
+            favorite_bets_pct = home_data.get("betsPct") or 0
+            favorite_odds = home_odds
+        else:
+            favorite_bets_pct = away_data.get("betsPct") or 0
+            favorite_odds = away_odds
+        
+        if favorite_odds >= -300:
+            # Determine status based on difference
+            if favorite_bets_pct > 90:
+                if moneyline.get("status") != TrapStatus.TRAP_CITY.value:
+                    result["moneyline"] = TrapStatus.TRAP_CITY.value
+                    result["moneyline_change"] = TrapChange.UPGRADE.value
+                    result["moneyline_side"] = favorite_side
+                    result["update"] = True
+            elif favorite_bets_pct > 80:
+                prev_status = moneyline.get("status")
+                if prev_status != TrapStatus.TRAP_DETECTED.value:
+                    result["moneyline"] = TrapStatus.TRAP_DETECTED.value
+                    result["moneyline_side"] = favorite_side
+                    result["update"] = True
+                    if prev_status == TrapStatus.TRAP_CITY.value:
+                        result["moneyline_change"] = TrapChange.DOWNGRADE.value
+                    else:
+                        result["moneyline_change"] = TrapChange.UPGRADE.value
+            elif favorite_bets_pct > 70:
+                prev_status = moneyline.get("status")
+                if prev_status != TrapStatus.TRAP_POTENTIAL.value:
+                    result["moneyline"] = TrapStatus.TRAP_POTENTIAL.value
+                    result["moneyline_side"] = favorite_side
+                    result["update"] = True
+                    if prev_status == TrapStatus.TRAP_DETECTED.value or prev_status == TrapStatus.TRAP_CITY.value:
+                        result["moneyline_change"] = TrapChange.DOWNGRADE.value
+                    else:
+                        result["moneyline_change"] = TrapChange.UPGRADE.value
+            else:
+                result["moneyline"] = None
+                result["moneyline_side"] = None
+                result["moneyline_change"] = None
+        else:
+            result["moneyline"] = None
+            result["moneyline_side"] = None
+            result["moneyline_change"] = None
+
+    # SPREAD 
+    # Skip if no Moneyline data
+    if spread:
+        home_data = moneyline.get("Home") or moneyline.get("home", {})
+        away_data = moneyline.get("Away") or moneyline.get("away", {})
+        home_bets_pct = home_data.get("betsPct") or 0
+        away_bets_pct = away_data.get("betsPct") or 0
+
+        
+        public_side = "Home" if home_bets_pct > away_bets_pct else "Away"
+        public_bets_pct = home_bets_pct if public_side == "Home" else away_bets_pct
+        # Determine status based on difference
+        
+        if public_bets_pct > 90:
+            if spread.get("status") != TrapStatus.TRAP_CITY.value:
+                result["spread"] = TrapStatus.TRAP_CITY.value
+                result["spread_change"] = TrapChange.UPGRADE.value
+                result["spread_side"] = public_side
+                result["update"] = True
+        elif public_bets_pct > 80:
+            prev_status = spread.get("status")
+            if prev_status != TrapStatus.TRAP_DETECTED.value:
+                result["spread"] = TrapStatus.TRAP_DETECTED.value
+                result["spread_side"] = public_side
+                result["update"] = True
+                if prev_status == TrapStatus.TRAP_CITY.value:
+                    result["spread_change"] = TrapChange.DOWNGRADE.value
+                else:
+                    result["spread_change"] = TrapChange.UPGRADE.value
+        elif public_bets_pct > 70:
+            prev_status = spread.get("status")
+            if prev_status != TrapStatus.TRAP_POTENTIAL.value:
+                result["spread"] = TrapStatus.TRAP_POTENTIAL.value
+                result["spread_side"] = public_side
+                result["update"] = True
+                if prev_status == TrapStatus.TRAP_DETECTED.value or prev_status == TrapStatus.TRAP_CITY.value:
+                    result["spread_change"] = TrapChange.DOWNGRADE.value
+                else:
+                    result["spread_change"] = TrapChange.UPGRADE.value
+        else:
+            result["spread"] = None
+            result["spread_side"] = None
+            result["spread_change"] = None
+    
+    # TOTAL 
+    # Skip if no Total data
+    if total:
+        over_data = moneyline.get("Over") or moneyline.get("over", {})
+        under_data = moneyline.get("Under") or moneyline.get("under", {})
+        over_bets_pct = over_data.get("betsPct") or 0
+        under_bets_pct = under_data.get("betsPct") or 0
+        
+        public_side = "Over" if over_bets_pct > under_bets_pct else "Under"
+        public_bets_pct = over_bets_pct if public_side == "Over" else under_bets_pct
+        # Determine status based on difference
+        
+        if public_bets_pct > 90:
+            if total.get("status") != TrapStatus.TRAP_CITY.value:
+                result["total"] = TrapStatus.TRAP_CITY.value
+                result["total_change"] = TrapChange.UPGRADE.value
+                result["total_side"] = public_side
+                result["update"] = True
+        elif public_bets_pct > 80:
+            prev_status = total.get("status")
+            if prev_status != TrapStatus.TRAP_DETECTED.value:
+                result["total"] = TrapStatus.TRAP_DETECTED.value
+                result["total_side"] = public_side
+                result["update"] = True
+                if prev_status == TrapStatus.TRAP_CITY.value:
+                    result["total_change"] = TrapChange.DOWNGRADE.value
+                else:
+                    result["total_change"] = TrapChange.UPGRADE.value
+        elif public_bets_pct > 70:
+            prev_status = total.get("status")
+            if prev_status != TrapStatus.TRAP_POTENTIAL.value:
+                result["total"] = TrapStatus.TRAP_POTENTIAL.value
+                result["total_side"] = public_side
+                result["update"] = True
+                if prev_status == TrapStatus.TRAP_DETECTED.value or prev_status == TrapStatus.TRAP_CITY.value:
+                    result["total_change"] = TrapChange.DOWNGRADE.value
+                else:
+                    result["total_change"] = TrapChange.UPGRADE.value
+        else:
+            result["total"] = None
+            result["total_side"] = None
             result["total_change"] = None
 
     return result
@@ -199,57 +351,91 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
         current_odds = event_data.get("currentOdds", {})
         updated_odds_with_trap_status = current_odds.copy()
 
-        result_data = await detect_trap_diff(current_odds)
+        # result_data = {
+        #     "moneyline": None or TP or TC or TD, 
+        #     "moneyline_change": None or UPGRADE or DOWNGRADE,
+        #     "moneyline_side": None or Home or Away,
+        #     "spread": None or TP or TC or TD,
+        #     "spread_change": None or UPGRADE or DOWNGRADE,
+        #     "spread_side": None or Home or Away,
+        #     "total": None or TP or TC or TD,
+        #     "total_change": None or UPGRADE or DOWNGRADE,
+        #     "total_side": None or Home or Away,
+        #     "update": True or False,
+        # }
 
-        # update results for 3, want to get status
-        # Note: result_data["moneyline"]/["spread"]/["total"] are only set when there's an actual change
-        if result_data["moneyline"] is not None:
-            updated_odds_with_trap_status["Moneyline"]["Status"] = result_data["moneyline"]
+        # Detect Trap DIFF
+        diff_result_data = await detect_trap_diff(current_odds)
+
+        # adds into status factors for Diff Check
+        if diff_result_data["moneyline"] is not None:
             if "StatusFactors" not in updated_odds_with_trap_status["Moneyline"]:
                 updated_odds_with_trap_status["Moneyline"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["Diff"] = result_data["moneyline"]
-            if result_data["moneyline"] == TrapStatus.TRAP_CITY.value:
-                TC_count += 1
-                TC_games_ids.append(event_doc.id)
-            elif result_data["moneyline"] == TrapStatus.TRAP_DETECTED.value:
-                TD_count += 1
-                TD_games_ids.append(event_doc.id)
-            elif result_data["moneyline"] == TrapStatus.TRAP_POTENTIAL.value:
-                TP_count += 1
-                TP_games_ids.append(event_doc.id)
+            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["Diff"] = {diff_result_data["moneyline"]: diff_result_data["moneyline_side"]}
 
-        if result_data["spread"] is not None:
-            updated_odds_with_trap_status["Spread"]["Status"] = result_data["spread"]
+        if diff_result_data["spread"] is not None:
             if "StatusFactors" not in updated_odds_with_trap_status["Spread"]:
                 updated_odds_with_trap_status["Spread"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Spread"]["StatusFactors"]["Diff"] = result_data["spread"]
-            if result_data["spread"] == TrapStatus.TRAP_CITY.value:
-                TC_count += 1
-                TC_games_ids.append(event_doc.id)
-            elif result_data["spread"] == TrapStatus.TRAP_DETECTED.value:
-                TD_count += 1
-                TD_games_ids.append(event_doc.id)
-            elif result_data["spread"] == TrapStatus.TRAP_POTENTIAL.value:
-                TP_count += 1
-                TP_games_ids.append(event_doc.id)
+            updated_odds_with_trap_status["Spread"]["StatusFactors"]["Diff"] = {diff_result_data["spread"]: diff_result_data["spread_side"]}
 
-        if result_data["total"] is not None:
-            updated_odds_with_trap_status["Total"]["Status"] = result_data["total"]
+        if diff_result_data["total"] is not None:
             if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
                 updated_odds_with_trap_status["Total"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Total"]["StatusFactors"]["Diff"] = result_data["total"]
-            if result_data["total"] == TrapStatus.TRAP_CITY.value:
+            updated_odds_with_trap_status["Total"]["StatusFactors"]["Diff"] = {diff_result_data["total"]: diff_result_data["total_side"]}
+
+        # Detect Trap PUBLIC MONEY
+        public_money_result_data = await detect_trap_public_money(current_odds)
+        # Note: result_data["moneyline"]/["spread"]/["total"] are only set when there's an actual change
+        if public_money_result_data["moneyline"] is not None:
+            updated_odds_with_trap_status["Moneyline"]["Status"] = public_money_result_data["moneyline"]
+            if "StatusFactors" not in updated_odds_with_trap_status["Moneyline"]:
+                updated_odds_with_trap_status["Moneyline"]["StatusFactors"] = {}
+            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["PublicMoney"] = {public_money_result_data["moneyline"]: public_money_result_data["moneyline_side"]}
+            if public_money_result_data["moneyline"] == TrapStatus.TRAP_CITY.value:
                 TC_count += 1
                 TC_games_ids.append(event_doc.id)
-            elif result_data["total"] == TrapStatus.TRAP_DETECTED.value:
+            elif public_money_result_data["moneyline"] == TrapStatus.TRAP_DETECTED.value:
                 TD_count += 1
                 TD_games_ids.append(event_doc.id)
-            elif result_data["total"] == TrapStatus.TRAP_POTENTIAL.value:
+            elif public_money_result_data["moneyline"] == TrapStatus.TRAP_POTENTIAL.value:
                 TP_count += 1
                 TP_games_ids.append(event_doc.id)
 
+        if public_money_result_data["spread"] is not None:
+            updated_odds_with_trap_status["Spread"]["Status"] = public_money_result_data["spread"]
+            if "StatusFactors" not in updated_odds_with_trap_status["Spread"]:
+                updated_odds_with_trap_status["Spread"]["StatusFactors"] = {}
+            updated_odds_with_trap_status["Spread"]["StatusFactors"]["PublicMoney"] = {public_money_result_data["spread"]: public_money_result_data["spread_side"]}
+            if public_money_result_data["spread"] == TrapStatus.TRAP_CITY.value:
+                TC_count += 1
+                TC_games_ids.append(event_doc.id)
+            elif public_money_result_data["spread"] == TrapStatus.TRAP_DETECTED.value:
+                TD_count += 1
+                TD_games_ids.append(event_doc.id)
+            elif public_money_result_data["spread"] == TrapStatus.TRAP_POTENTIAL.value:
+                TP_count += 1
+                TP_games_ids.append(event_doc.id)
+
+        if public_money_result_data["total"] is not None:
+            updated_odds_with_trap_status["Total"]["Status"] = public_money_result_data["total"]
+            if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
+                updated_odds_with_trap_status["Total"]["StatusFactors"] = {}
+            updated_odds_with_trap_status["Total"]["StatusFactors"]["PublicMoney"] = {public_money_result_data["total"]: public_money_result_data["total_side"]}
+            # right now only adds if PUBLIC MONEY, not DIFF
+            # count and appending is scuffed, need to refactor with checking logic, first needs to add if DIFF, then check if already added here before double adding
+            if public_money_result_data["total"] == TrapStatus.TRAP_CITY.value:
+                TC_count += 1
+                TC_games_ids.append(event_doc.id)
+            elif public_money_result_data["total"] == TrapStatus.TRAP_DETECTED.value:
+                TD_count += 1
+                TD_games_ids.append(event_doc.id)
+            elif public_money_result_data["total"] == TrapStatus.TRAP_POTENTIAL.value:
+                TP_count += 1
+                TP_games_ids.append(event_doc.id)
+
+
         # Update status in Firestore only when there's at least one change
-        if result_data["update"]:
+        if diff_result_data["update"] or public_money_result_data["update"]:
             event_ref = db.collection("odds").document(event_doc.id)
             batch.update(event_ref, {"currentOdds": updated_odds_with_trap_status})
             batch_ops += 1

@@ -46,5 +46,14 @@ def get_all_events_with_odds() -> Iterable["DocumentSnapshot"]:
     """
     db = get_db()
     now = datetime.now(timezone.utc)
-    events = db.collection(GAMES_COLLECTION).where("commenceTime", ">=", now).get()
+    
+    # gameTimeET is stored as string like "2026-01-20 10:00PM ET"
+    # Get today's date string for comparison (YYYY-MM-DD format)
+    # This will match all games from today onwards
+    today_str = now.strftime("%Y-%m-%d")
+    print("today_str: {}".format(today_str))
+    
+    # Query for events where gameTimeET >= today's date string
+    # String comparison works: "2026-01-20" <= "2026-01-20 10:00PM ET" < "2026-01-21"
+    events = db.collection(GAMES_COLLECTION).where("gameTimeET", ">=", today_str).get()
     return events
