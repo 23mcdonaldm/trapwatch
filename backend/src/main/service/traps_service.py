@@ -219,16 +219,17 @@ async def detect_trap_public_money(current_odds: dict) -> dict:
                 result["moneyline"] = None
                 result["moneyline_side"] = None
                 result["moneyline_change"] = None
+            print(f"ML Trap: {result['moneyline']}, Bets %: {favorite_bets_pct}")
         else:
             result["moneyline"] = None
             result["moneyline_side"] = None
             result["moneyline_change"] = None
-
+        
     # SPREAD 
     # Skip if no Moneyline data
     if spread:
-        home_data = moneyline.get("Home") or moneyline.get("home", {})
-        away_data = moneyline.get("Away") or moneyline.get("away", {})
+        home_data = spread.get("Home") or spread.get("home", {})
+        away_data = spread.get("Away") or spread.get("away", {})
         home_bets_pct = home_data.get("betsPct") or 0
         away_bets_pct = away_data.get("betsPct") or 0
 
@@ -263,16 +264,17 @@ async def detect_trap_public_money(current_odds: dict) -> dict:
                     result["spread_change"] = TrapChange.DOWNGRADE.value
                 else:
                     result["spread_change"] = TrapChange.UPGRADE.value
+        
         else:
             result["spread"] = None
             result["spread_side"] = None
             result["spread_change"] = None
-    
+        print(f"Spread Trap: {result['spread']}, Bets %: {public_bets_pct}")
     # TOTAL 
     # Skip if no Total data
     if total:
-        over_data = moneyline.get("Over") or moneyline.get("over", {})
-        under_data = moneyline.get("Under") or moneyline.get("under", {})
+        over_data = total.get("Over") or total.get("over", {})
+        under_data = total.get("Under") or total.get("under", {})
         over_bets_pct = over_data.get("betsPct") or 0
         under_bets_pct = under_data.get("betsPct") or 0
         
@@ -310,6 +312,7 @@ async def detect_trap_public_money(current_odds: dict) -> dict:
             result["total"] = None
             result["total_side"] = None
             result["total_change"] = None
+        print(f"Total Trap: {result['total']}, Bets %: {public_bets_pct}")
 
     return result
     
@@ -385,6 +388,8 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
 
         # Detect Trap PUBLIC MONEY
         public_money_result_data = await detect_trap_public_money(current_odds)
+        print(f"Event ID: {event_doc.id}")
+        print(f"Public Money Result Data: {public_money_result_data}")
         # Note: result_data["moneyline"]/["spread"]/["total"] are only set when there's an actual change
         if public_money_result_data["moneyline"] is not None:
             updated_odds_with_trap_status["Moneyline"]["Status"] = public_money_result_data["moneyline"]
@@ -416,6 +421,7 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
                 TP_count += 1
                 TP_games_ids.append(event_doc.id)
 
+        # TOTAL
         if public_money_result_data["total"] is not None:
             updated_odds_with_trap_status["Total"]["Status"] = public_money_result_data["total"]
             if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
