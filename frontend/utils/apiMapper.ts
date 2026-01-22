@@ -1,4 +1,5 @@
-import { Game, Team, League, TrapLabel, LEAGUE_MAP, TRAP_STATUS_MAP, ApiGame, ApiFeedResponse, ApiStatusFactors, ApiOddsSide, Trigger } from '../types';
+import { Game, Team, League, TrapLabel, LEAGUE_MAP, TRAP_STATUS_MAP, Trigger } from '../types';
+import { ApiGame, ApiFeedResponse, ApiStatusFactors, ApiOddsSide } from '@/types/odds';
 import { NFL_TEAMS, NBA_TEAMS, NHL_TEAMS, MLB_TEAMS, NCAA_TEAMS } from '../data/teams';
 
 // Helper to find team by name (fuzzy matching)

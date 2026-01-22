@@ -6,7 +6,7 @@ import { FilterState, TrapLabel, Game } from '../types';
 import TrapGameCard from '../components/TrapGameCard';
 import { FiltersBar } from '../components/FiltersBar';
 import { useAppSelector } from '../store/hooks';
-import { apiService } from '../services/api';
+import { apiService } from '@/services/fetch.feed';
 import { mapApiFeedToGames } from '../utils/apiMapper';
 
 const Dashboard: React.FC = () => {
