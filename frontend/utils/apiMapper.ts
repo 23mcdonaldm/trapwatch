@@ -1,8 +1,13 @@
 import { Game, Team, League, TrapLabel, LEAGUE_MAP, TRAP_STATUS_MAP, Trigger } from '../types';
-import { ApiGame, ApiFeedResponse, ApiStatusFactors, ApiOddsSide } from '@/types/odds';
+import { ApiGame, ApiFeedResponse, ApiStatusFactors, ApiOddsSide, ApiTrapEntry } from '@/types/odds';
 import { NFL_TEAMS, NBA_TEAMS, NHL_TEAMS, MLB_TEAMS, NCAA_TEAMS } from '../data/teams';
 
-// Helper to find team by name (fuzzy matching)
+// Helper to normalize team names for matching (remove spaces, special chars, lowercase)
+const normalizeName = (name: string): string => {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+};
+
+// Helper to find team by name (simple fuzzy matching)
 const findTeamByName = (teamName: string, league: League): Team | null => {
   let teams: Record<string, Team> | undefined;
   
@@ -29,23 +34,35 @@ const findTeamByName = (teamName: string, league: League): Team | null => {
 
   if (!teams) return null;
 
-  // Try exact match first
+  const normalizedSearch = normalizeName(teamName);
+  const matches: Team[] = [];
+
   for (const [key, team] of Object.entries(teams)) {
-    if (team.name.toLowerCase() === teamName.toLowerCase() || 
-        team.shortName.toLowerCase() === teamName.toLowerCase()) {
+    const normalizedName = normalizeName(team.name);
+    const normalizedShort = normalizeName(team.shortName);
+    const normalizedAliases = (team.aliases || []).map(normalizeName);
+    
+    // Exact match - return immediately
+    if (normalizedName === normalizedSearch || 
+        normalizedShort === normalizedSearch ||
+        normalizedAliases.includes(normalizedSearch)) {
       return team;
+    }
+    
+    // Partial match - collect all matches
+    if (normalizedName.includes(normalizedSearch) || 
+        normalizedSearch.includes(normalizedName) ||
+        normalizedShort.includes(normalizedSearch) ||
+        normalizedSearch.includes(normalizedShort) ||
+        normalizedAliases.some(alias => alias.includes(normalizedSearch) || normalizedSearch.includes(alias))) {
+      matches.push(team);
     }
   }
-
-  // Try partial match
-  const lowerName = teamName.toLowerCase();
-  for (const [key, team] of Object.entries(teams)) {
-    if (team.name.toLowerCase().includes(lowerName) || 
-        team.shortName.toLowerCase().includes(lowerName) ||
-        lowerName.includes(team.name.toLowerCase()) ||
-        lowerName.includes(team.shortName.toLowerCase())) {
-      return team;
-    }
+  
+  // Return the longest/most specific match (most characters in name)
+  if (matches.length > 0) {
+    matches.sort((a, b) => b.name.length - a.name.length);
+    return matches[0];
   }
 
   return null;
@@ -102,18 +119,18 @@ const parseGameTime = (gameTimeET: string): string => {
       throw new Error('Invalid time format');
     }
     
-    let hours = parseInt(timeMatch[1]);
-    const minutes = parseInt(timeMatch[2]);
-    const ampm = timeMatch[3].toUpperCase();
-    
+      let hours = parseInt(timeMatch[1]);
+      const minutes = parseInt(timeMatch[2]);
+      const ampm = timeMatch[3].toUpperCase();
+      
     if (isNaN(hours) || isNaN(minutes)) {
       throw new Error('Invalid time values');
     }
     
     // Convert to 24-hour format
-    if (ampm === 'PM' && hours !== 12) hours += 12;
-    if (ampm === 'AM' && hours === 12) hours = 0;
-    
+      if (ampm === 'PM' && hours !== 12) hours += 12;
+      if (ampm === 'AM' && hours === 12) hours = 0;
+      
     // Create date in ET timezone (UTC-5)
     // ET is UTC-5, so we create the date as UTC and subtract 5 hours
     // This represents the ET time as if it were UTC
@@ -129,51 +146,36 @@ const parseGameTime = (gameTimeET: string): string => {
     return date.toISOString();
   } catch (e) {
     console.warn('Failed to parse gameTimeET:', gameTimeET, e);
-    // Fallback to current time
-    return new Date().toISOString();
+  // Fallback to current time
+  return new Date().toISOString();
   }
 };
 
-// Get which market has a specific status (priority: Moneyline > Spread > Total)
-const getMarketForStatus = (apiGame: ApiGame, status: 'TC' | 'TD' | 'TP'): 'Moneyline' | 'Spread' | 'Total' | null => {
-  const mlStatus = apiGame.currentOdds.Moneyline?.Status;
-  const spreadStatus = apiGame.currentOdds.Spread?.Status;
-  const totalStatus = apiGame.currentOdds.Total?.Status;
-  
-  if (mlStatus === status) return 'Moneyline';
-  if (spreadStatus === status) return 'Spread';
-  if (totalStatus === status) return 'Total';
-  
-  return null;
+// Format spread line based on trap side
+// Line is always from home team's perspective:
+// - Negative = home favored (e.g., -3.5)
+// - Positive = home underdog (e.g., +3.5)
+// If trap is on Away, flip the sign
+const formatSpreadLine = (line: number, trapSide: 'Home' | 'Away'): string => {
+  if (trapSide === 'Home') {
+    // Show line as-is (negative if home favored, positive if home underdog)
+    return line < 0 ? `${line}` : `+${line}`;
+  } else {
+    // Trap is on Away, flip the sign
+    return line < 0 ? `+${Math.abs(line)}` : `${-line}`;
+  }
 };
 
-// Determine trap label and which market triggered it (highest priority)
-const getTrapLabelAndMarket = (apiGame: ApiGame): { label: TrapLabel; market: 'Moneyline' | 'Spread' | 'Total' } => {
-  // Priority: TC > TD > TP, and check which market has it
-  // Priority order: Moneyline > Spread > Total
-  const tcMarket = getMarketForStatus(apiGame, 'TC');
-  if (tcMarket) return { label: TrapLabel.CITY, market: tcMarket };
+// Calculate severity score based on diff values from the trap side
+const calculateSeverityScore = (
+  trapSide: ApiOddsSide,
+  trapLabel: TrapLabel
+): number => {
+  const diff = trapSide.diff || 0;
   
-  const tdMarket = getMarketForStatus(apiGame, 'TD');
-  if (tdMarket) return { label: TrapLabel.DETECTED, market: tdMarket };
+  // Scale 0-50 diff to 0-100 score, with bonus for trap label
+  let score = Math.min(100, (diff / 50) * 100);
   
-  const tpMarket = getMarketForStatus(apiGame, 'TP');
-  if (tpMarket) return { label: TrapLabel.POTENTIAL, market: tpMarket };
-  
-  // Default fallback
-  return { label: TrapLabel.POTENTIAL, market: 'Moneyline' };
-};
-
-// Calculate severity score based on diff values
-const calculateSeverityScore = (apiGame: ApiGame): number => {
-  const mlDiff = apiGame.currentOdds.Moneyline?.Away?.diff || apiGame.currentOdds.Moneyline?.Home?.diff || 0;
-  const spreadDiff = apiGame.currentOdds.Spread?.Away?.diff || apiGame.currentOdds.Spread?.Home?.diff || 0;
-  const maxDiff = Math.max(mlDiff, spreadDiff);
-  
-  // Scale 0-50 diff to 0-100 score, with bonus for TC status
-  let score = Math.min(100, (maxDiff / 50) * 100);
-  
-  const { label: trapLabel } = getTrapLabelAndMarket(apiGame);
   if (trapLabel === TrapLabel.CITY) score = Math.min(100, score + 20);
   else if (trapLabel === TrapLabel.DETECTED) score = Math.min(100, score + 10);
   
@@ -263,34 +265,28 @@ const generateTriggers = (
   return triggers;
 };
 
-// Map API game to frontend Game type
-export const mapApiGameToGame = (apiGame: ApiGame, forceStatus?: 'TC' | 'TD' | 'TP', forceMarket?: 'Moneyline' | 'Spread' | 'Total'): Game => {
+// Map API trap entry to frontend Game type
+export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
+  const { market, side, event: apiGame } = trapEntry;
+  
   const league = LEAGUE_MAP[apiGame.league] || League.NFL;
   
   // Get or create team objects
   const homeTeamData = findTeamByName(apiGame.homeTeam, league) || createDefaultTeam(apiGame.homeTeam);
   const awayTeamData = findTeamByName(apiGame.awayTeam, league) || createDefaultTeam(apiGame.awayTeam);
   
-  // Determine trap label and market
+  // Determine trap label from Status
   let trapLabel: TrapLabel;
-  let trapMarket: 'Moneyline' | 'Spread' | 'Total';
+  const status = apiGame.currentOdds[market]?.Status;
+  if (status === 'TC') trapLabel = TrapLabel.CITY;
+  else if (status === 'TD') trapLabel = TrapLabel.DETECTED;
+  else trapLabel = TrapLabel.POTENTIAL;
   
-  if (forceStatus && forceMarket) {
-    // Use forced status and market
-    trapMarket = forceMarket;
-    trapLabel = forceStatus === 'TC' ? TrapLabel.CITY : forceStatus === 'TD' ? TrapLabel.DETECTED : TrapLabel.POTENTIAL;
-  } else {
-    // Use default logic (highest priority)
-    const result = getTrapLabelAndMarket(apiGame);
-    trapLabel = result.label;
-    trapMarket = result.market;
-  }
+  const trapMarket = market;
   
-  // Extract StatusFactors from the market that has the trap
-  let statusFactors: ApiStatusFactors | undefined;
+  // Extract trap side data and odds based on market and side
   let trapSide: ApiOddsSide;
-  
-  // Extract odds based on which market has the trap
+  let statusFactors: ApiStatusFactors | undefined;
   let spread: string | undefined;
   let moneyline: string | undefined;
   let total: string | undefined;
@@ -298,15 +294,8 @@ export const mapApiGameToGame = (apiGame: ApiGame, forceStatus?: 'TC' | 'TD' | '
   let publicBetsPercent: number;
   let trapIsOnHome: boolean;
   
-  if (trapMarket === 'Moneyline') {
-    // Determine which side has the trap (high public money/bets percentage)
-    const homeMoneyPct = apiGame.currentOdds.Moneyline.Home.handlePct;
-    const awayMoneyPct = apiGame.currentOdds.Moneyline.Away.handlePct;
-    const homeBetsPct = apiGame.currentOdds.Moneyline.Home.betsPct;
-    const awayBetsPct = apiGame.currentOdds.Moneyline.Away.betsPct;
-    
-    trapIsOnHome = homeMoneyPct > awayMoneyPct || (homeMoneyPct === awayMoneyPct && homeBetsPct > awayBetsPct);
-    
+  if (market === 'Moneyline') {
+    trapIsOnHome = side === 'Home';
     trapSide = trapIsOnHome 
       ? apiGame.currentOdds.Moneyline.Home 
       : apiGame.currentOdds.Moneyline.Away;
@@ -316,34 +305,18 @@ export const mapApiGameToGame = (apiGame: ApiGame, forceStatus?: 'TC' | 'TD' | '
     publicMoneyPercent = Math.round(trapSide.handlePct);
     publicBetsPercent = Math.round(trapSide.betsPct);
     
-    // Also include spread for reference
-    const spreadLine = apiGame.currentOdds.Spread.Line;
-    if (trapIsOnHome) {
-      spread = spreadLine < 0 ? `${spreadLine}` : `+${spreadLine}`;
-    } else {
-      spread = spreadLine < 0 ? `+${Math.abs(spreadLine)}` : `-${spreadLine}`;
+    // Include spread for reference (formatted based on trap side)
+    if (apiGame.currentOdds.Spread?.Line !== undefined) {
+      spread = formatSpreadLine(apiGame.currentOdds.Spread.Line, side as 'Home' | 'Away');
     }
     
-    if (apiGame.currentOdds.Total?.Line) {
+    // Include total for reference
+    if (apiGame.currentOdds.Total?.Line !== undefined) {
       total = apiGame.currentOdds.Total.Line.toString();
     }
     
-  } else if (trapMarket === 'Spread') {
-    // Determine which side has the trap on spread
-    const homeSpreadPct = apiGame.currentOdds.Spread.Home.handlePct;
-    const awaySpreadPct = apiGame.currentOdds.Spread.Away.handlePct;
-    const homeBetsPct = apiGame.currentOdds.Spread.Home.betsPct;
-    const awayBetsPct = apiGame.currentOdds.Spread.Away.betsPct;
-    
-    trapIsOnHome = homeSpreadPct > awaySpreadPct || (homeSpreadPct === awaySpreadPct && homeBetsPct > awayBetsPct);
-    
-    const spreadLine = apiGame.currentOdds.Spread.Line;
-    if (trapIsOnHome) {
-      spread = spreadLine < 0 ? `${spreadLine}` : `+${spreadLine}`;
-    } else {
-      spread = spreadLine < 0 ? `+${Math.abs(spreadLine)}` : `-${spreadLine}`;
-    }
-    
+  } else if (market === 'Spread') {
+    trapIsOnHome = side === 'Home';
     trapSide = trapIsOnHome 
       ? apiGame.currentOdds.Spread.Home 
       : apiGame.currentOdds.Spread.Away;
@@ -352,25 +325,26 @@ export const mapApiGameToGame = (apiGame: ApiGame, forceStatus?: 'TC' | 'TD' | '
     publicMoneyPercent = Math.round(trapSide.handlePct);
     publicBetsPercent = Math.round(trapSide.betsPct);
     
-    // Also include moneyline for reference
+    // Format spread line based on trap side
+    spread = formatSpreadLine(apiGame.currentOdds.Spread.Line, side as 'Home' | 'Away');
+    
+    // Include moneyline for reference (from trap side)
     const homeML = apiGame.currentOdds.Moneyline.Home.odds;
     const awayML = apiGame.currentOdds.Moneyline.Away.odds;
     moneyline = formatOdds(trapIsOnHome ? homeML : awayML);
     
-    if (apiGame.currentOdds.Total?.Line) {
+    // Include total for reference
+    if (apiGame.currentOdds.Total?.Line !== undefined) {
       total = apiGame.currentOdds.Total.Line.toString();
     }
     
-  } else if (trapMarket === 'Total') {
-    // Determine which side has the trap on total (Over or Under)
-    const overPct = apiGame.currentOdds.Total.Over.handlePct;
-    const underPct = apiGame.currentOdds.Total.Under.handlePct;
-    const overBetsPct = apiGame.currentOdds.Total.Over.betsPct;
-    const underBetsPct = apiGame.currentOdds.Total.Under.betsPct;
+  } else if (market === 'Total') {
+    // For Total, trapIsOnHome doesn't apply, use moneyline to determine favorite
+    const homeML = apiGame.currentOdds.Moneyline.Home.odds;
+    const awayML = apiGame.currentOdds.Moneyline.Away.odds;
+    trapIsOnHome = homeML < awayML; // Lower odds = favorite
     
-    const trapIsOnOver = overPct > underPct || (overPct === underPct && overBetsPct > underBetsPct);
-    
-    trapSide = trapIsOnOver 
+    trapSide = side === 'Over'
       ? apiGame.currentOdds.Total.Over 
       : apiGame.currentOdds.Total.Under;
     
@@ -379,22 +353,11 @@ export const mapApiGameToGame = (apiGame: ApiGame, forceStatus?: 'TC' | 'TD' | '
     publicMoneyPercent = Math.round(trapSide.handlePct);
     publicBetsPercent = Math.round(trapSide.betsPct);
     
-    // For total, trapIsOnHome doesn't really apply, but we'll use it for consistency
-    // Use moneyline to determine which team is "home" for display purposes
-    const homeMoneyPct = apiGame.currentOdds.Moneyline.Home.handlePct;
-    const awayMoneyPct = apiGame.currentOdds.Moneyline.Away.handlePct;
-    trapIsOnHome = homeMoneyPct > awayMoneyPct;
-    
-    // Also include moneyline and spread for reference
-    const homeML = apiGame.currentOdds.Moneyline.Home.odds;
-    const awayML = apiGame.currentOdds.Moneyline.Away.odds;
+    // Include moneyline and spread for reference
     moneyline = formatOdds(trapIsOnHome ? homeML : awayML);
     
-    const spreadLine = apiGame.currentOdds.Spread.Line;
-    if (trapIsOnHome) {
-      spread = spreadLine < 0 ? `${spreadLine}` : `+${spreadLine}`;
-    } else {
-      spread = spreadLine < 0 ? `+${Math.abs(spreadLine)}` : `-${spreadLine}`;
+    if (apiGame.currentOdds.Spread?.Line !== undefined) {
+      spread = formatSpreadLine(apiGame.currentOdds.Spread.Line, trapIsOnHome ? 'Home' : 'Away');
     }
   } else {
     // Fallback (shouldn't happen)
@@ -420,7 +383,7 @@ export const mapApiGameToGame = (apiGame: ApiGame, forceStatus?: 'TC' | 'TD' | '
     publicBetsPercent,
     trapLabel,
     trapMarket,
-    severityScore: calculateSeverityScore(apiGame),
+    severityScore: calculateSeverityScore(trapSide, trapLabel),
     trapTriggers: generateTriggers(statusFactors, trapMarket, trapSide, trapLabel),
     whatPeopleAreSaying: [], // Will be populated later or from another endpoint
     trapHistory: [{
@@ -436,117 +399,38 @@ export const mapApiFeedToGames = (apiFeed: ApiFeedResponse): {
   [TrapLabel.DETECTED]: Game[];
   [TrapLabel.POTENTIAL]: Game[];
 } => {
-  // Combine all games from all buckets and remove duplicates
-  const allApiGames = [
-    ...apiFeed.traps.TC,
-    ...apiFeed.traps.TD,
-    ...apiFeed.traps.TP,
-  ];
-  
-  // Build a map to track which games are in which buckets
-  const gameBuckets = new Map<string, Set<string>>();
-  for (const game of apiFeed.traps.TC) {
-    if (!gameBuckets.has(game.id)) {
-      gameBuckets.set(game.id, new Set());
-    }
-    gameBuckets.get(game.id)!.add('TC');
-  }
-  for (const game of apiFeed.traps.TD) {
-    if (!gameBuckets.has(game.id)) {
-      gameBuckets.set(game.id, new Set());
-    }
-    gameBuckets.get(game.id)!.add('TD');
-  }
-  for (const game of apiFeed.traps.TP) {
-    if (!gameBuckets.has(game.id)) {
-      gameBuckets.set(game.id, new Set());
-    }
-    gameBuckets.get(game.id)!.add('TP');
-  }
-  
-  // Get unique games, preferring from TC > TD > TP buckets
-  const uniqueGames = new Map<string, ApiGame>();
-  // First add all TC games
-  for (const game of apiFeed.traps.TC) {
-    uniqueGames.set(game.id, game);
-  }
-  // Then add TD games (if not already in)
-  for (const game of apiFeed.traps.TD) {
-    if (!uniqueGames.has(game.id)) {
-      uniqueGames.set(game.id, game);
-    }
-  }
-  // Finally add TP games (if not already in)
-  for (const game of apiFeed.traps.TP) {
-    if (!uniqueGames.has(game.id)) {
-      uniqueGames.set(game.id, game);
-    }
-  }
-  
-  // Map all games - map each game once but group by all statuses it has
-  const mappedGamesMap = new Map<string, Game>();
-  
-  Array.from(uniqueGames.values()).forEach(apiGame => {
-    try {
-      const mapped = mapApiGameToGame(apiGame);
-      mappedGamesMap.set(mapped.id, mapped);
-    } catch (error) {
-      console.error('Error mapping game:', apiGame.id, apiGame.homeTeam, apiGame.awayTeam, error);
-    }
-  });
-  
-  const mappedGames = Array.from(mappedGamesMap.values());
-  
-  // Helper function to recreate game with market data for a specific status
-  const createGameForStatus = (game: Game, apiGame: ApiGame, status: 'TC' | 'TD' | 'TP'): Game => {
-    const marketForStatus = getMarketForStatus(apiGame, status);
-    if (!marketForStatus) {
-      // No market with this status (shouldn't happen, but safety check)
-      return game;
-    }
-    
-    // Recreate game with the correct market data for this status
-    return mapApiGameToGame(apiGame, status, marketForStatus);
-  };
-  
-  // Group games by all statuses they have (not just the highest priority)
-  // Use the backend buckets to determine which sections games should appear in
   const cityGames: Game[] = [];
   const detectedGames: Game[] = [];
   const potentialGames: Game[] = [];
   
-  mappedGames.forEach(game => {
-    // Check which buckets this game was in from the backend
-    const apiGame = uniqueGames.get(game.id);
-    if (apiGame) {
-      const inBuckets = gameBuckets.get(game.id) || new Set();
-      
-      // Add to all sections where it has that status, with the correct market for that status
-      if (inBuckets.has('TC')) {
-        const marketForTC = getMarketForStatus(apiGame, 'TC');
-        if (marketForTC) {
-          const gameForTC = createGameForStatus(game, apiGame, 'TC');
-          cityGames.push(gameForTC);
-        }
-      }
-      if (inBuckets.has('TD')) {
-        const marketForTD = getMarketForStatus(apiGame, 'TD');
-        if (marketForTD) {
-          const gameForTD = createGameForStatus(game, apiGame, 'TD');
-          detectedGames.push(gameForTD);
-        }
-      }
-      if (inBuckets.has('TP')) {
-        const marketForTP = getMarketForStatus(apiGame, 'TP');
-        if (marketForTP) {
-          const gameForTP = createGameForStatus(game, apiGame, 'TP');
-          potentialGames.push(gameForTP);
-        }
-      }
+  // Map each trap entry directly - the backend already grouped them correctly
+  apiFeed.traps.TC.forEach(trapEntry => {
+    try {
+      const game = mapTrapEntryToGame(trapEntry);
+      cityGames.push(game);
+    } catch (error) {
+      console.error('Error mapping TC trap entry:', trapEntry.event.id, error);
     }
   });
   
-  // Group by backend buckets (which represent all statuses the game has)
+  apiFeed.traps.TD.forEach(trapEntry => {
+    try {
+      const game = mapTrapEntryToGame(trapEntry);
+      detectedGames.push(game);
+    } catch (error) {
+      console.error('Error mapping TD trap entry:', trapEntry.event.id, error);
+    }
+  });
+  
+  apiFeed.traps.TP.forEach(trapEntry => {
+    try {
+      const game = mapTrapEntryToGame(trapEntry);
+      potentialGames.push(game);
+        } catch (error) {
+      console.error('Error mapping TP trap entry:', trapEntry.event.id, error);
+        }
+  });
+
   return {
     [TrapLabel.CITY]: cityGames,
     [TrapLabel.DETECTED]: detectedGames,

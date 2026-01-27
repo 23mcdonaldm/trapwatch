@@ -83,7 +83,7 @@ async def get_all_odds(dry_run: bool = False) -> tuple[int, int]:
             if market == "Spread":
                 # Split by either + or - to extract the line (e.g., "Indiana -3.5" or "Indiana +3.5")
                 # Using regex character class [+\-] to match either + or - (need to escape - in character class)
-                parts = re.split(r'\s*[+-]\s*', selection, maxsplit=1)
+                parts = re.split(r'\s*[+-]\s*', row["Selection"], maxsplit=1)
                 if len(parts) > 1:
                     # Get the line value (the part after the + or -)
                     line_str = parts[1].strip()

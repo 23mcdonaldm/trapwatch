@@ -370,27 +370,27 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
         # Detect Trap DIFF
         diff_result_data = await detect_trap_diff(current_odds)
 
-        # adds into status factors for Diff Check
+        # adds into status factors for Diff Check, for now diff doesn't add in to Status
         if diff_result_data["moneyline"] is not None:
-            if "Status" not in updated_odds_with_trap_status["Moneyline"]:
-                updated_odds_with_trap_status["Moneyline"]["Status"] = diff_result_data["moneyline"]
-                updated_odds_with_trap_status["Moneyline"]["StatusSide"] = diff_result_data["moneyline_side"]
+            # if "Status" not in updated_odds_with_trap_status["Moneyline"]:
+            #     updated_odds_with_trap_status["Moneyline"]["Status"] = diff_result_data["moneyline"]
+            #     updated_odds_with_trap_status["Moneyline"]["StatusSide"] = diff_result_data["moneyline_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Moneyline"]:
                 updated_odds_with_trap_status["Moneyline"]["StatusFactors"] = {}
             updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["Diff"] = (diff_result_data["moneyline"], diff_result_data["moneyline_side"])
 
         if diff_result_data["spread"] is not None:
-            if "Status" not in updated_odds_with_trap_status["Spread"]:
-                updated_odds_with_trap_status["Spread"]["Status"] = diff_result_data["spread"]
-                updated_odds_with_trap_status["Spread"]["StatusSide"] = diff_result_data["spread_side"]
+            # if "Status" not in updated_odds_with_trap_status["Spread"]:
+            #     updated_odds_with_trap_status["Spread"]["Status"] = diff_result_data["spread"]
+            #     updated_odds_with_trap_status["Spread"]["StatusSide"] = diff_result_data["spread_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Spread"]:
                 updated_odds_with_trap_status["Spread"]["StatusFactors"] = {}
             updated_odds_with_trap_status["Spread"]["StatusFactors"]["Diff"] = (diff_result_data["spread"], diff_result_data["spread_side"])
 
         if diff_result_data["total"] is not None:
-            if "Status" not in updated_odds_with_trap_status["Total"]:
-                updated_odds_with_trap_status["Total"]["Status"] = diff_result_data["total"]
-                updated_odds_with_trap_status["Total"]["StatusSide"] = diff_result_data["total_side"]
+            # if "Status" not in updated_odds_with_trap_status["Total"]:
+            #     updated_odds_with_trap_status["Total"]["Status"] = diff_result_data["total"]
+            #     updated_odds_with_trap_status["Total"]["StatusSide"] = diff_result_data["total_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
                 updated_odds_with_trap_status["Total"]["StatusFactors"] = {}
             updated_odds_with_trap_status["Total"]["StatusFactors"]["Diff"] = (diff_result_data["total"], diff_result_data["total_side"])

@@ -12,6 +12,7 @@ export interface ApiOddsSide {
     Over: ApiOddsSide;
     Under: ApiOddsSide;
     Status?: string; // 'TC' | 'TD' | 'TP' (optional, may not always be present)
+    StatusSide?: string; // 'Over' | 'Under'
     StatusFactors?: ApiStatusFactors;
   }
   
@@ -24,7 +25,8 @@ export interface ApiOddsSide {
     Home: ApiOddsSide;
     Away: ApiOddsSide;
     Status: string; // 'TC' | 'TD' | 'TP'
-    StatusFactors: ApiStatusFactors;
+    StatusSide?: string; // 'Home' | 'Away'
+    StatusFactors?: ApiStatusFactors;
   }
   
   export interface ApiSpreadOdds {
@@ -32,7 +34,8 @@ export interface ApiOddsSide {
     Home: ApiOddsSide;
     Away: ApiOddsSide;
     Status: string; // 'TC' | 'TD' | 'TP'
-    StatusFactors: ApiStatusFactors;
+    StatusSide?: string; // 'Home' | 'Away'
+    StatusFactors?: ApiStatusFactors;
   }
   
   export interface ApiCurrentOdds {
@@ -52,13 +55,19 @@ export interface ApiOddsSide {
     currentOdds: ApiCurrentOdds;
   }
   
+  export interface ApiTrapEntry {
+    market: 'Moneyline' | 'Spread' | 'Total';
+    side: 'Home' | 'Away' | 'Over' | 'Under';
+    event: ApiGame;
+  }
+
   export interface ApiFeedResponse {
     generatedAt: string;
     dateET: string;
     traps: {
-      TC: ApiGame[];
-      TD: ApiGame[];
-      TP: ApiGame[];
+      TC: ApiTrapEntry[];
+      TD: ApiTrapEntry[];
+      TP: ApiTrapEntry[];
     };
     by_league: {
       [key: string]: ApiGame[];
