@@ -39,7 +39,9 @@ const Dashboard: React.FC = () => {
       setError(null);
       try {
         const feedData = await apiService.getFeed();
+        console.log('feedData', feedData);
         const mappedGames = mapApiFeedToGames(feedData);
+        console.log('mappedGames', mappedGames);
         setGroupedGames(mappedGames);
       } catch (err) {
         console.error('Failed to fetch games:', err);

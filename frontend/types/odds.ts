@@ -16,12 +16,8 @@ export interface ApiOddsSide {
   }
   
   export interface ApiStatusFactors {
-    Diff?: string;
-    // Future
-    // Diff?: (string | string);
-    // Current
-    // Diff?: {string: string};
-    PublicMoney?: string;
+    Diff?: (string | string);
+    PublicMoney?: (string | string);
   }
   
   export interface ApiMoneylineOdds {

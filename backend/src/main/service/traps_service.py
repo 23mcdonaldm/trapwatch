@@ -372,19 +372,28 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
 
         # adds into status factors for Diff Check
         if diff_result_data["moneyline"] is not None:
+            if "Status" not in updated_odds_with_trap_status["Moneyline"]:
+                updated_odds_with_trap_status["Moneyline"]["Status"] = diff_result_data["moneyline"]
+                updated_odds_with_trap_status["Moneyline"]["StatusSide"] = diff_result_data["moneyline_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Moneyline"]:
                 updated_odds_with_trap_status["Moneyline"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["Diff"] = {diff_result_data["moneyline"]: diff_result_data["moneyline_side"]}
+            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["Diff"] = (diff_result_data["moneyline"], diff_result_data["moneyline_side"])
 
         if diff_result_data["spread"] is not None:
+            if "Status" not in updated_odds_with_trap_status["Spread"]:
+                updated_odds_with_trap_status["Spread"]["Status"] = diff_result_data["spread"]
+                updated_odds_with_trap_status["Spread"]["StatusSide"] = diff_result_data["spread_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Spread"]:
                 updated_odds_with_trap_status["Spread"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Spread"]["StatusFactors"]["Diff"] = {diff_result_data["spread"]: diff_result_data["spread_side"]}
+            updated_odds_with_trap_status["Spread"]["StatusFactors"]["Diff"] = (diff_result_data["spread"], diff_result_data["spread_side"])
 
         if diff_result_data["total"] is not None:
+            if "Status" not in updated_odds_with_trap_status["Total"]:
+                updated_odds_with_trap_status["Total"]["Status"] = diff_result_data["total"]
+                updated_odds_with_trap_status["Total"]["StatusSide"] = diff_result_data["total_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
                 updated_odds_with_trap_status["Total"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Total"]["StatusFactors"]["Diff"] = {diff_result_data["total"]: diff_result_data["total_side"]}
+            updated_odds_with_trap_status["Total"]["StatusFactors"]["Diff"] = (diff_result_data["total"], diff_result_data["total_side"])
 
         # Detect Trap PUBLIC MONEY
         public_money_result_data = await detect_trap_public_money(current_odds)
@@ -392,10 +401,12 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
         print(f"Public Money Result Data: {public_money_result_data}")
         # Note: result_data["moneyline"]/["spread"]/["total"] are only set when there's an actual change
         if public_money_result_data["moneyline"] is not None:
+            # overwrites status since public money has highest priority
             updated_odds_with_trap_status["Moneyline"]["Status"] = public_money_result_data["moneyline"]
+            updated_odds_with_trap_status["Moneyline"]["StatusSide"] = public_money_result_data["moneyline_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Moneyline"]:
                 updated_odds_with_trap_status["Moneyline"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["PublicMoney"] = {public_money_result_data["moneyline"]: public_money_result_data["moneyline_side"]}
+            updated_odds_with_trap_status["Moneyline"]["StatusFactors"]["PublicMoney"] = (public_money_result_data["moneyline"], public_money_result_data["moneyline_side"])    
             if public_money_result_data["moneyline"] == TrapStatus.TRAP_CITY.value:
                 TC_count += 1
                 TC_games_ids.append(event_doc.id)
@@ -408,9 +419,10 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
 
         if public_money_result_data["spread"] is not None:
             updated_odds_with_trap_status["Spread"]["Status"] = public_money_result_data["spread"]
+            updated_odds_with_trap_status["Spread"]["StatusSide"] = public_money_result_data["spread_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Spread"]:
                 updated_odds_with_trap_status["Spread"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Spread"]["StatusFactors"]["PublicMoney"] = {public_money_result_data["spread"]: public_money_result_data["spread_side"]}
+            updated_odds_with_trap_status["Spread"]["StatusFactors"]["PublicMoney"] = (public_money_result_data["spread"], public_money_result_data["spread_side"])
             if public_money_result_data["spread"] == TrapStatus.TRAP_CITY.value:
                 TC_count += 1
                 TC_games_ids.append(event_doc.id)
@@ -424,9 +436,10 @@ async def calculate_traps() -> tuple[int, int, int, list[str], list[str], list[s
         # TOTAL
         if public_money_result_data["total"] is not None:
             updated_odds_with_trap_status["Total"]["Status"] = public_money_result_data["total"]
+            updated_odds_with_trap_status["Total"]["StatusSide"] = public_money_result_data["total_side"]
             if "StatusFactors" not in updated_odds_with_trap_status["Total"]:
                 updated_odds_with_trap_status["Total"]["StatusFactors"] = {}
-            updated_odds_with_trap_status["Total"]["StatusFactors"]["PublicMoney"] = {public_money_result_data["total"]: public_money_result_data["total_side"]}
+            updated_odds_with_trap_status["Total"]["StatusFactors"]["PublicMoney"] = (public_money_result_data["total"], public_money_result_data["total_side"])
             # right now only adds if PUBLIC MONEY, not DIFF
             # count and appending is scuffed, need to refactor with checking logic, first needs to add if DIFF, then check if already added here before double adding
             if public_money_result_data["total"] == TrapStatus.TRAP_CITY.value:

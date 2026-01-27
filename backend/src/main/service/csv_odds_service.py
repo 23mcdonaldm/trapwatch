@@ -83,7 +83,7 @@ async def get_all_odds(dry_run: bool = False) -> tuple[int, int]:
             if market == "Spread":
                 # Split by either + or - to extract the line (e.g., "Indiana -3.5" or "Indiana +3.5")
                 # Using regex character class [+\-] to match either + or - (need to escape - in character class)
-                parts = re.split(r'[+\-]', row["Selection"], maxsplit=1)
+                parts = re.split(r'\s*[+-]\s*', selection, maxsplit=1)
                 if len(parts) > 1:
                     # Get the line value (the part after the + or -)
                     line_str = parts[1].strip()
@@ -92,7 +92,11 @@ async def get_all_odds(dry_run: bool = False) -> tuple[int, int]:
                     # - Negative if home team is favored
                     # - Positive if away team is favored
                     is_home_selection = selection == "Home"
-                    is_negative_in_selection = "-" in row["Selection"]
+                    sign_match = re.search(r'\s([+-])\s*\d', row["Selection"])
+                    if not sign_match:
+                        raise ValueError(f"Could not detect line sign: {row['Selection']}")
+
+                    is_negative_in_selection = sign_match.group(1) == '-'
                     
                     if is_home_selection:
                         # If selection is home team:

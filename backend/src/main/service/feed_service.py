@@ -7,7 +7,7 @@ from repository import get_events_repository
 async def get_feed_events(dateET: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Get events for all leagues for given day by traps, leagues
-    Returns: (traps, by_league)
+    Returns: (traps: {market, side, event}[], by_league: event[])
     """
     traps = {
         "TC": [],
@@ -39,10 +39,11 @@ async def get_feed_events(dateET: str) -> tuple[dict[str, Any], dict[str, Any]]:
             if market not in current_odds:
                 continue
             if current_odds[market].get("Status") == TrapStatus.TRAP_CITY.value:
-                traps["TC"].append(event_data)
+                # TODO: Add StatusSide
+                traps["TC"].append({"market": market, "side": current_odds[market].get("StatusSide"), "event": event_data})
             elif current_odds[market].get("Status") == TrapStatus.TRAP_DETECTED.value:
-                traps["TD"].append(event_data)
+                traps["TD"].append({"market": market, "side": current_odds[market].get("StatusSide"), "event": event_data})
             elif current_odds[market].get("Status") == TrapStatus.TRAP_POTENTIAL.value:
-                traps["TP"].append(event_data)
+                traps["TP"].append({"market": market, "side": current_odds[market].get("StatusSide"), "event": event_data})
 
     return traps, by_league
