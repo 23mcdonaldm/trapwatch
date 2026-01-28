@@ -17,8 +17,8 @@ async def set_user_vote(game_id: str, user_id: str, market: str, side: str, gene
         return None
 
     inserted = insert_user_vote(opportunity_id, user_id, side, generatedAt)
-    if not inserted:
+    if inserted is None:
         return None
-    return True
+    return inserted
 
     

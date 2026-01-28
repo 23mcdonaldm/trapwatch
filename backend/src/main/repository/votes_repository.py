@@ -10,11 +10,38 @@ if TYPE_CHECKING:  # pragma: no cover
 GAMES_COLLECTION = "votes"
 VOTES_SUBCOLLECTION = "userVotes"
 
-def insert_user_vote(opportunity_id: str, user_id: str, side: str, generatedAt: str):
+
+def insert_user_vote(opportunity_id: str, user_id: str, side: str, generatedAt: str) -> bool:
+    """
+    Insert a user vote for a given opportunity.
+
+    If a document for this user_id already exists under the opportunity, the vote
+    is NOT changed and the function returns False so we don't double‑count.
+
+    Returns:
+        bool: True if a new vote document was created, False if it already existed.
+    """
     db = get_db()
-    doc_ref = db.collection(GAMES_COLLECTION).document(opportunity_id).collection(VOTES_SUBCOLLECTION).document(user_id)
-    doc_ref.set({
-        "side": side, # "home" | "away" | "over" | "under"
-        "generatedAt": generatedAt,
-    }, merge=True)
+    doc_ref = (
+        db.collection(GAMES_COLLECTION)
+        .document(opportunity_id)
+        .collection(VOTES_SUBCOLLECTION)
+        .document(user_id)
+    )
+
+    # Check if this user has already voted on this opportunity
+    existing = doc_ref.get()
+    if existing.exists:
+        # User already has a vote recorded; do not overwrite / double‑count
+        return False
+
+    # Create new vote document
+    doc_ref.set(
+        {
+            "user_id": user_id,
+            "side": side,  # "home" | "away" | "over" | "under"
+            "generatedAt": generatedAt,
+        },
+        merge=True,
+    )
     return True

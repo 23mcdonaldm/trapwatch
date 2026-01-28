@@ -23,8 +23,6 @@ async def votes_route(payload: VotesRequest):
         VotesResponse: The response containing the votes
     """
     generatedAt = datetime.now(timezone.utc).isoformat()
-    print("HELLO")
-    print(payload)
     
 
     vote = await votes_service.set_user_vote(payload.game_id, payload.user_id, payload.market, payload.side, generatedAt)
@@ -33,4 +31,5 @@ async def votes_route(payload: VotesRequest):
 
     return VotesResponse(
         generatedAt=generatedAt,
+        vote=vote,
     )
