@@ -17,8 +17,8 @@ export interface ApiOddsSide {
   }
   
   export interface ApiStatusFactors {
-    Diff?: (string | string);
-    PublicMoney?: (string | string);
+    Diff?: [string, string]; // [status, side] e.g., ["TC", "Home"]
+    PublicMoney?: [string, string]; // [status, side] e.g., ["TD", "Away"]
   }
   
   export interface ApiMoneylineOdds {

@@ -49,6 +49,10 @@ export interface Odds {
 export interface Trigger {
   title: string;
   explanation: string;
+  trendArrow?: {
+    direction: 'up' | 'down';
+    color: 'green' | 'orange' | 'yellow' | 'red';
+  };
 }
 
 export interface SocialPost {

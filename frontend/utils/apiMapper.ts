@@ -191,75 +191,66 @@ const isHomeFavorite = (apiGame: ApiGame): boolean => {
   return homeOdds < awayOdds;
 };
 
-// Generate triggers from StatusFactors and market data
+// Generate triggers from StatusFactors for favorite and opposite sides
 const generateTriggers = (
   statusFactors: ApiStatusFactors | undefined,
   market: 'Moneyline' | 'Spread' | 'Total',
   trapSide: ApiOddsSide,
-  trapLabel: TrapLabel
+  trapLabel: TrapLabel,
+  trapSideKey: 'Home' | 'Away' | 'Over' | 'Under',
+  isHomeFavorite: boolean,
+  apiGame: ApiGame
 ): Trigger[] => {
   const triggers: Trigger[] = [];
   
-  // Calculate the actual diff (difference between handle and bets percentages)
-  const diff = Math.abs(trapSide.handlePct - trapSide.betsPct);
+  if (!statusFactors) return triggers;
   
-  // If diff is significant, create a trigger about sharp vs public money
-  if (diff >= 10) {
-    const isHandleHigher = trapSide.handlePct > trapSide.betsPct;
-    
-    let title: string;
-    let explanation: string;
-    
-    if (isHandleHigher) {
-      // More money (handle) than tickets (bets) = sharps betting heavy
-      title = 'Sharp Money Discrepancy';
-      explanation = `Sharp bettors are placing significantly more money (${Math.round(trapSide.handlePct)}%) than the public ticket count (${Math.round(trapSide.betsPct)}%) suggests. This ${diff}% gap indicates professional money is heavily backing this side, creating a trap as the public follows ticket percentages while sharps control the actual money flow.`;
+  // Helper to get trend arrow based on status and whether it's favorite or opposite
+  // status: TC, TD, or TP (first element)
+  // isFromFavorite: true if the side (Home/Away) matches the favorite
+  const getTrendArrow = (status: string, isFromFavorite: boolean): { direction: 'up' | 'down'; color: 'green' | 'orange' | 'yellow' | 'red' } => {
+    const statusUpper = status.toUpperCase();
+    if (isFromFavorite) {
+      // Favorite side: up arrow, green/orange/yellow
+      if (statusUpper === 'TC') return { direction: 'up', color: 'green' };
+      if (statusUpper === 'TD') return { direction: 'up', color: 'orange' };
+      return { direction: 'up', color: 'yellow' }; // TP
     } else {
-      // More tickets (bets) than money (handle) = public betting tickets, sharps fading
-      title = 'Public Ticket Overload';
-      explanation = `The public is placing more tickets (${Math.round(trapSide.betsPct)}%) than the money percentage (${Math.round(trapSide.handlePct)}%) indicates. This ${diff}% difference shows many small public bets vs fewer but larger sharp bets on the opposite side, signaling a potential trap where public sentiment doesn't match where the real money is going.`;
+      // Opposite side: down arrow, red/orange/yellow
+      if (statusUpper === 'TC') return { direction: 'down', color: 'red' };
+      if (statusUpper === 'TD') return { direction: 'down', color: 'orange' };
+      return { direction: 'down', color: 'yellow' }; // TP
     }
+  };
+  
+  // Process Diff factor
+  // Format: [TC/TD/TP, Home/Away]
+  if (statusFactors.Diff && Array.isArray(statusFactors.Diff) && statusFactors.Diff.length >= 2) {
+    const [diffStatus, diffSide] = statusFactors.Diff;
+    // diffSide is "Home" or "Away" - check if it matches the favorite
+    const isFromFavorite = (diffSide === 'Home' && isHomeFavorite) || (diffSide === 'Away' && !isHomeFavorite);
+    const trendArrow = getTrendArrow(diffStatus, isFromFavorite);
     
-    triggers.push({ title, explanation });
+    triggers.push({
+      title: 'Sharp Money Fading',
+      explanation: `Sharp bettors are placing significantly more money than the public ticket count suggests. This gap indicates professional money is heavily backing ${isFromFavorite ? 'the favorite' : 'the opposite side'}, creating a trap as the public follows ticket percentages while sharps control the actual money flow.`,
+      trendArrow
+    });
   }
   
-  // Add market-specific triggers based on trap label
-  if (market === 'Moneyline') {
-    if (trapLabel === TrapLabel.CITY) {
-      triggers.push({
-        title: 'Moneyline Trap City',
-        explanation: 'Extreme public money concentration on the moneyline favorite. When over 85% of handle is on one side, favorites cover less than 40% of the time, making this a high-confidence trap signal.'
-      });
-    } else if (trapLabel === TrapLabel.DETECTED) {
-      triggers.push({
-        title: 'Moneyline Trap Detected',
-        explanation: 'Significant public money imbalance detected on the moneyline. Sharp money is likely positioned on the opposite side, creating value on the underdog.'
-      });
-    }
-  } else if (market === 'Spread') {
-    if (trapLabel === TrapLabel.CITY) {
-      triggers.push({
-        title: 'Spread Trap City',
-        explanation: 'Massive public support on the spread favorite. When public bets exceed 80% on a spread, sharp contrarian plays become highly profitable as books shade lines toward public action.'
-      });
-    } else if (trapLabel === TrapLabel.DETECTED) {
-      triggers.push({
-        title: 'Spread Trap Detected',
-        explanation: 'Public is heavily backing one side of the spread. The discrepancy between ticket count and money percentage suggests sharp action on the opposite side.'
-      });
-    }
-  } else if (market === 'Total') {
-    if (trapLabel === TrapLabel.CITY) {
-      triggers.push({
-        title: 'Total Trap City',
-        explanation: 'Extreme public concentration on Over/Under. When public money heavily favors one side of the total, sharp bettors often find value on the opposite side, especially in games with key player situations or weather factors.'
-      });
-    } else if (trapLabel === TrapLabel.DETECTED) {
-      triggers.push({
-        title: 'Total Trap Detected',
-        explanation: 'Significant public bias detected on the total. The money vs ticket discrepancy indicates sharp action may be positioned contrarian to public sentiment.'
-      });
-    }
+  // Process PublicMoney factor
+  // Format: [TC/TD/TP, Home/Away]
+  if (statusFactors.PublicMoney && Array.isArray(statusFactors.PublicMoney) && statusFactors.PublicMoney.length >= 2) {
+    const [publicMoneyStatus, publicMoneySide] = statusFactors.PublicMoney;
+    // publicMoneySide is "Home" or "Away" - check if it matches the favorite
+    const isFromFavorite = (publicMoneySide === 'Home' && isHomeFavorite) || (publicMoneySide === 'Away' && !isHomeFavorite);
+    const trendArrow = getTrendArrow(publicMoneyStatus, isFromFavorite);
+    
+    triggers.push({
+      title: 'Public Ticket Overload',
+      explanation: `The public is placing more tickets than the money percentage indicates. This difference shows many small public bets vs fewer but larger sharp bets on the opposite side, signaling a potential trap where public sentiment doesn't match where the real money is going.`,
+      trendArrow
+    });
   }
   
   return triggers;
@@ -339,7 +330,7 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
     }
     
   } else if (market === 'Total') {
-    // For Total, trapIsOnHome doesn't apply, use moneyline to determine favorite
+    // For Total, use moneyline to determine isHomeFavorite
     const homeML = apiGame.currentOdds.Moneyline.Home.odds;
     const awayML = apiGame.currentOdds.Moneyline.Away.odds;
     trapIsOnHome = homeML < awayML; // Lower odds = favorite
@@ -384,7 +375,7 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
     trapLabel,
     trapMarket,
     severityScore: calculateSeverityScore(trapSide, trapLabel),
-    trapTriggers: generateTriggers(statusFactors, trapMarket, trapSide, trapLabel),
+    trapTriggers: generateTriggers(statusFactors, trapMarket, trapSide, trapLabel, side, trapIsOnHome, apiGame),
     whatPeopleAreSaying: [], // Will be populated later or from another endpoint
     trapHistory: [{
       label: trapLabel,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, MessageSquare, AlertTriangle, Zap, Clock, Target, Calendar, BarChart2, Heart, Reply, Send, History, ExternalLink, Share2, Loader2 } from 'lucide-react';
+import { ChevronDown, MessageSquare, AlertTriangle, Zap, Clock, Target, Calendar, BarChart2, Heart, Reply, Send, History, ExternalLink, Share2, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Trigger, SocialPost, Comment, TrapLabel, Game } from '../types';
 import { storageService } from '../services/storage';
 import { ALL_GAMES } from '../constants';
@@ -164,10 +164,37 @@ export const TriggersPills: React.FC<{ triggers: Trigger[]; label: TrapLabel }> 
       <div className="flex flex-wrap gap-2 mb-3">
         {triggers.map((trigger, idx) => {
           const isActive = selectedIndex === idx;
+          const trendArrow = trigger.trendArrow;
+          
+          // Get trend arrow icon and color
+          let trendIcon = null;
+          let trendColorClass = '';
+          if (trendArrow) {
+            if (trendArrow.direction === 'up') {
+              trendIcon = <TrendingUp size={14} />;
+            } else {
+              trendIcon = <TrendingDown size={14} />;
+            }
+            
+            // Set color based on trendArrow.color
+            if (trendArrow.color === 'green') {
+              trendColorClass = 'text-green-600 dark:text-green-400';
+            } else if (trendArrow.color === 'orange') {
+              trendColorClass = 'text-orange-600 dark:text-orange-400';
+            } else if (trendArrow.color === 'yellow') {
+              trendColorClass = 'text-yellow-600 dark:text-yellow-400';
+            } else if (trendArrow.color === 'red') {
+              trendColorClass = 'text-red-600 dark:text-red-400';
+            }
+          }
+          
           return (
             <button key={idx} onClick={(e) => { e.stopPropagation(); setSelectedIndex(isActive ? null : idx); }}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-bold transition-all shadow-sm ${isActive ? theme.pillActive : theme.pillInactive}`}>
-              {getIcon(trigger.title)}<span>{trigger.title}</span><ChevronDown size={14} className={`transition-transform duration-200 ${isActive ? 'rotate-180' : ''}`} />
+              {getIcon(trigger.title)}
+              <span>{trigger.title}</span>
+              {trendIcon && <span className={trendColorClass}>{trendIcon}</span>}
+              <ChevronDown size={14} className={`transition-transform duration-200 ${isActive ? 'rotate-180' : ''}`} />
             </button>
           );
         })}
