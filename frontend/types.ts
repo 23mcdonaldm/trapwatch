@@ -143,6 +143,7 @@ export interface FilterState {
   league: League | 'ALL';
   search: string;
   label: TrapLabel | 'ALL';
+  date: string | 'upcoming'; // ISO date string or 'upcoming' for today/future
 }
 
 export interface LeaderboardEntry {

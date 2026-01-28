@@ -15,7 +15,8 @@ const Dashboard: React.FC = () => {
   const [filters, setFilters] = useState<FilterState>({
     league: 'ALL',
     search: '',
-    label: 'ALL'
+    label: 'ALL',
+    date: 'upcoming'
   });
   const [groupedGames, setGroupedGames] = useState<{
     [TrapLabel.CITY]: Game[];
@@ -38,7 +39,21 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const feedData = await apiService.getFeed();
+        // Determine the date to fetch
+        let dateToFetch: string;
+        if (filters.date === 'upcoming') {
+          // For 'upcoming', use today's date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          dateToFetch = today.toISOString();
+        } else {
+          // Use the selected date
+          const selectedDate = new Date(filters.date);
+          selectedDate.setHours(0, 0, 0, 0);
+          dateToFetch = selectedDate.toISOString();
+        }
+        
+        const feedData = await apiService.getFeed(dateToFetch);
         console.log('feedData', feedData);
         const mappedGames = mapApiFeedToGames(feedData);
         console.log('mappedGames', mappedGames);
@@ -58,7 +73,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchGames();
-  }, []);
+  }, [filters.date]);
 
   // Apply filters to the already-grouped games
   const filteredGames = useMemo(() => {
@@ -232,7 +247,7 @@ const Dashboard: React.FC = () => {
           <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
             <p className="text-slate-400 font-medium">No traps found matching your filters.</p>
             <button 
-              onClick={() => setFilters({ league: 'ALL', search: '', label: 'ALL' })}
+              onClick={() => setFilters({ league: 'ALL', search: '', label: 'ALL', date: 'upcoming' })}
               className="mt-2 text-orange-600 font-bold hover:underline"
             >
               Clear filters

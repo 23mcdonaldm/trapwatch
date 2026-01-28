@@ -4,11 +4,16 @@ const API_BASE_URL = 'http://localhost:8000/api/v1';
 
 export const apiService = {
   /**
-   * Fetch today's games from the feed endpoint
+   * Fetch games from the feed endpoint for a specific date
+   * @param dateET - ISO date string (defaults to today if not provided)
    */
-  getFeed: async (): Promise<ApiFeedResponse> => {
+  getFeed: async (dateET?: string): Promise<ApiFeedResponse> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feed`);
+      const url = dateET 
+        ? `${API_BASE_URL}/feed?dateET=${encodeURIComponent(dateET)}`
+        : `${API_BASE_URL}/feed`;
+      
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error(`API error: ${response.status} ${response.statusText}`);
