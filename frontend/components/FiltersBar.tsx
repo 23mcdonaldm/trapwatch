@@ -12,30 +12,44 @@ const DatePicker: React.FC<Props> = ({ filters, setFilters }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [buttonRef, setButtonRef] = useState<HTMLButtonElement | null>(null);
   
-  // Helper to format date as YYYY-MM-DD in local timezone (not UTC)
-  const formatDateLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  // We want calendar + "today" to be based on Eastern Time (ET), not the user's local timezone.
+  const ET_TZ = 'America/New_York';
+
+  // Format date as YYYY-MM-DD in ET.
+  // Using en-CA yields YYYY-MM-DD format.
+  const formatDateET = (date: Date): string => {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: ET_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  };
+
+  // Parse YYYY-MM-DD into a Date that is safe for formatting (use noon UTC to avoid DST edge cases).
+  const dateStrToSafeDate = (dateStr: string): Date => {
+    return new Date(`${dateStr}T12:00:00Z`);
   };
   
-  // Get today's date in YYYY-MM-DD format (local timezone)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = formatDateLocal(today);
+  // ET "today"
+  const todayStr = formatDateET(new Date());
   
   // Get current selected date or default to 'upcoming'
   const selectedDate = filters.date === 'upcoming' ? todayStr : filters.date;
   const displayDate = filters.date === 'upcoming' 
     ? 'Upcoming' 
-    : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    : dateStrToSafeDate(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: ET_TZ });
   
   // Get first day of month and number of days
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+  // Interpret currentMonth in ET by deriving year/month from ET "today" on first render.
+  // Ensure currentMonth is at a stable UTC-noon instant for the 1st of that month.
+  const currentMonthETStr = formatDateET(currentMonth); // YYYY-MM-DD in ET
+  const [cmYearStr, cmMonthStr] = currentMonthETStr.split('-');
+  const year = parseInt(cmYearStr, 10);
+  const month = parseInt(cmMonthStr, 10) - 1; // JS Date month is 0-based
+
+  const firstDay = new Date(Date.UTC(year, month, 1, 12, 0, 0));
+  const lastDay = new Date(Date.UTC(year, month + 1, 0, 12, 0, 0));
   const daysInMonth = lastDay.getDate();
   const startingDayOfWeek = firstDay.getDay();
   
@@ -49,11 +63,11 @@ const DatePicker: React.FC<Props> = ({ filters, setFilters }) => {
   
   // Add all days of the month
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    date.setHours(0, 0, 0, 0);
-    const dateStr = formatDateLocal(date);
+    const date = new Date(Date.UTC(year, month, day, 12, 0, 0));
+    const dateStr = formatDateET(date);
     const isToday = dateStr === todayStr;
-    const isPast = date < today;
+    // Compare ET dates lexicographically (YYYY-MM-DD)
+    const isPast = dateStr < todayStr;
     calendarDays.push({ date, dateStr, isToday, isPast });
   }
   
@@ -69,17 +83,18 @@ const DatePicker: React.FC<Props> = ({ filters, setFilters }) => {
   
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
-      const newDate = new Date(prev);
-      if (direction === 'prev') {
-        newDate.setMonth(prev.getMonth() - 1);
-      } else {
-        newDate.setMonth(prev.getMonth() + 1);
-      }
-      return newDate;
+      // Move by months using a stable UTC-noon anchor.
+      const prevETStr = formatDateET(prev);
+      const [yStr, mStr] = prevETStr.split('-');
+      const y = parseInt(yStr, 10);
+      const m = parseInt(mStr, 10) - 1;
+      const base = new Date(Date.UTC(y, m, 1, 12, 0, 0));
+      base.setUTCMonth(base.getUTCMonth() + (direction === 'prev' ? -1 : 1));
+      return base;
     });
   };
   
-  const monthYearLabel = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthYearLabel = firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: ET_TZ });
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   
   // Calculate position for fixed calendar

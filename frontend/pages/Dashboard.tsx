@@ -39,20 +39,17 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // Determine the date to fetch
-        let dateToFetch: string;
-        if (filters.date === 'upcoming') {
-          // For 'upcoming', use today's date
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          dateToFetch = today.toISOString();
-        } else {
-          // Use the selected date
-          const selectedDate = new Date(filters.date);
-          selectedDate.setHours(0, 0, 0, 0);
-          dateToFetch = selectedDate.toISOString();
-        }
-        
+        // Fetch by ET date (YYYY-MM-DD). "upcoming" uses today's date in ET.
+        const ET_TZ = 'America/New_York';
+        const todayET = new Intl.DateTimeFormat('en-CA', {
+          timeZone: ET_TZ,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date());
+
+        const dateToFetch = filters.date === 'upcoming' ? todayET : filters.date;
+
         const feedData = await apiService.getFeed(dateToFetch);
         console.log('feedData', feedData);
         const mappedGames = mapApiFeedToGames(feedData);

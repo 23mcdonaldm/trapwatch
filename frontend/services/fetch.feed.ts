@@ -5,7 +5,7 @@ const API_BASE_URL = 'http://localhost:8000/api/v1';
 export const apiService = {
   /**
    * Fetch games from the feed endpoint for a specific date
-   * @param dateET - ISO date string (defaults to today if not provided)
+   * @param dateET - ET date string (YYYY-MM-DD). If omitted, backend defaults to "today".
    */
   getFeed: async (dateET?: string): Promise<ApiFeedResponse> => {
     try {

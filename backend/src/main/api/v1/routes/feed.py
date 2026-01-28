@@ -9,7 +9,7 @@ router = APIRouter(prefix="/feed", tags=["feed"])
 
 # Get all events
 @router.get("", response_model=FeedResponse)
-async def feed_route(dateET: Optional[str] = Query(None, description="ISO date string for the date to fetch (defaults to today)")):
+async def feed_route(dateET: Optional[str] = Query(None, description="ET date string (YYYY-MM-DD) or ISO datetime; defaults to today")):
     generatedAt = datetime.now(timezone.utc).isoformat()
     
     # Use provided dateET or default to today
