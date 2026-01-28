@@ -7,8 +7,8 @@ from enums.event_status import EventStatus
 if TYPE_CHECKING:  # pragma: no cover
     from google.cloud.firestore import DocumentSnapshot
 
-GAMES_COLLECTION = "votes"
-VOTES_SUBCOLLECTION = "userVotes"
+GAMES_COLLECTION = "social"
+VOTES_SUBCOLLECTION = "votes"
 
 
 def insert_user_vote(opportunity_id: str, user_id: str, side: str, generatedAt: str) -> bool:
@@ -38,7 +38,6 @@ def insert_user_vote(opportunity_id: str, user_id: str, side: str, generatedAt: 
     # Create new vote document
     doc_ref.set(
         {
-            "user_id": user_id,
             "side": side,  # "home" | "away" | "over" | "under"
             "generatedAt": generatedAt,
         },

@@ -17,5 +17,14 @@ gcloud services enable pubsub.googleapis.com
 gcloud services enable run.googleapis.com
 gcloud services enable storage.googleapis.com
 
+running:
+npx firebase-tools deploy --only functions
+
+or just one
+
+npx firebase-tools deploy --only functions:on_user_vote_write
 
 
+deleting functions:
+
+npx firebase-tools functions:delete on_user_vote_write
