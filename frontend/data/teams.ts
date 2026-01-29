@@ -311,7 +311,7 @@ export const NCAA_TEAMS: Record<string, Team> = {
   CANISIUS: { name: 'Canisius Golden Griffins', shortName: 'Canisius', espnId: 2098, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2098.png', primaryColor: '#003DA5' },
   MOUNTSTMARYS: { name: "Mount St. Mary's Mountaineers", shortName: "Mount St. Mary's", espnId: 2409, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2409.png', primaryColor: '#003DA5' },
   SAINTPETERS: { name: "Saint Peter's Peacocks", shortName: "Saint Peter's", espnId: 2581, aliases: ["St Peter's"], logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2581.png', primaryColor: '#003DA5' },
-  HOFSTRA: { name: 'Hofstra Pride', shortName: 'Hofstra', espnId: 2271, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2271.png', primaryColor: '#005F76' },
+  HOFSTRA: { name: 'Hofstra Pride', shortName: 'Hofstra', espnId: 2275, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2275.png', primaryColor: '#005F76' },
   CHARLESTON: { name: 'Charleston Cougars', shortName: 'Charleston', espnId: 2113, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2113.png', primaryColor: '#780000' },
   UNCW: { name: 'UNCW Seahawks', shortName: 'UNCW', espnId: 2465, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2465.png', primaryColor: '#006747' },
   TOWSON: { name: 'Towson Tigers', shortName: 'Towson', espnId: 119, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/119.png', primaryColor: '#FFB81C' },
@@ -388,8 +388,8 @@ export const NCAA_TEAMS: Record<string, Team> = {
   LOYOLACHICAGO: { name: 'Loyola Chicago Ramblers', shortName: 'Loyola Chicago', espnId: 2350, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2350.png', primaryColor: '#5a0722' },
   NEWORLEANS: { name: 'New Orleans Privateers', shortName: 'New Orleans', espnId: 2309, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2309.png', primaryColor: '#005CA6' },
   NICHOLLS: { name: 'Nicholls Colonels', shortName: 'Nicholls', espnId: 2447, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2447.png', primaryColor: '#AE132A' },
-  GRANDCANYON: { name: 'Grand Canyon Antelopes', shortName: 'Grand Canyon', espnId: 2635, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2635.png', primaryColor: '#2B5242' },
-
+  GRANDCANYON: { name: 'Grand Canyon Antelopes', shortName: 'Grand Canyon', espnId: 2253, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2253.png', primaryColor: '#2B5242' },
+  SAMFORD: {name: 'Samford Bulldogs', shortName: 'Samford', espnId: 2535, logoUrl: 'https://a.espncdn.com/i/teamlogos/ncaa/500/2535.png', primaryColor: '#2B5242'},
 };
 
 export const ALL_TEAMS = { ...NFL_TEAMS, ...NBA_TEAMS, ...MLB_TEAMS, ...NHL_TEAMS, ...NCAA_TEAMS };
