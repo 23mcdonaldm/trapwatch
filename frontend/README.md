@@ -2,6 +2,7 @@
 
 **Prerequisites:**  Node.js
 
+cd frontend/src
 
 1. Install dependencies:
    `npm install`

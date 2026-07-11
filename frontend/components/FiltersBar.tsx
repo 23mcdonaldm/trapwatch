@@ -7,7 +7,7 @@ interface Props {
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
 }
 
-const DatePicker: React.FC<Props> = ({ filters, setFilters }) => {
+export const DatePicker: React.FC<Props> = ({ filters, setFilters }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [buttonRef, setButtonRef] = useState<HTMLButtonElement | null>(null);

@@ -47,6 +47,14 @@ def get_events(dateET: str) -> Iterable["DocumentSnapshot"]:
     )
     return events
 
+def get_event_by_id(game_id: str) -> "DocumentSnapshot":
+    """
+    Get a single event document from the odds collection by its document id.
+    """
+    db = get_db()
+    return db.collection(GAMES_COLLECTION).document(game_id).get()
+
+
 def get_all_events_with_odds() -> Iterable["DocumentSnapshot"]:
     """
     Get all upcoming and future events from the odds collection

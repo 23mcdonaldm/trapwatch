@@ -1,35 +1,61 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Comment } from '../types';
-import { storageService } from '../services/storage';
 import { MessageSquare, ArrowRight } from 'lucide-react';
-import { MOCK_GAMES } from '../constants';
+import { collectionGroup, onSnapshot, orderBy, query, limit } from 'firebase/firestore';
+import { firestore } from '../firebase/firebase';
+
+// Social doc ids look like "{league}_{gameTimeET}_{homeTeam}_{awayTeam}_{market}".
+// A comment doc's parent-parent id is that opportunity id; strip the market to get the game id.
+const parseOpportunityId = (oppId: string): { gameId: string; matchupLabel: string } | null => {
+  const parts = oppId.split('_');
+  if (parts.length !== 5) return null;
+  const [, , homeTeam, awayTeam] = parts;
+  return {
+    gameId: parts.slice(0, 4).join('_'),
+    matchupLabel: `${awayTeam} vs ${homeTeam}`,
+  };
+};
 
 export const LiveChatBanner: React.FC = () => {
   const navigate = useNavigate();
   const [activeComment, setActiveComment] = useState<{gameId: string, comment: Comment, teamName: string} | null>(null);
   const [isExiting, setIsExiting] = useState(false);
+  const isFirstSnapshot = useRef(true);
 
-  // Subscribe to new comments
+  // Subscribe to the newest comment across ALL games/markets (live, Firestore collection group)
   useEffect(() => {
-    const unsub = storageService.subscribeToComments((gameId, comment) => {
-        const game = MOCK_GAMES.find(g => g.id === gameId);
-        const teamName = game ? `${game.awayTeam.shortName} vs ${game.homeTeam.shortName}` : 'Unknown Game';
-        
-        if (activeComment) {
-            // Animate out current, then set new
-            setIsExiting(true);
-            setTimeout(() => {
-                setActiveComment({ gameId, comment, teamName });
-                setIsExiting(false);
-            }, 300); // Match transition duration
-        } else {
-            setActiveComment({ gameId, comment, teamName });
-            setIsExiting(false);
-        }
-    });
+    const q = query(collectionGroup(firestore, 'comments'), orderBy('generatedAt', 'desc'), limit(1));
+    const unsub = onSnapshot(q, (snap) => {
+      // Skip the initial snapshot — only surface comments posted while the app is open.
+      if (isFirstSnapshot.current) {
+        isFirstSnapshot.current = false;
+        return;
+      }
+      snap.docChanges().forEach((change) => {
+        if (change.type !== 'added') return;
+        const doc = change.doc;
+        const oppRef = doc.ref.parent.parent;
+        if (!oppRef) return;
+        const parsed = parseOpportunityId(oppRef.id);
+        if (!parsed) return;
+
+        const data = doc.data();
+        const comment: Comment = {
+          id: doc.id,
+          displayName: data.displayName || 'Anonymous',
+          text: data.comment || '',
+          createdAt: Date.parse(data.generatedAt) || Date.now(),
+          upvotes: 0,
+          downvotes: 0,
+        };
+
+        setIsExiting(false);
+        setActiveComment({ gameId: parsed.gameId, comment, teamName: parsed.matchupLabel });
+      });
+    }, (err) => console.error('LiveChatBanner listener error:', err));
     return unsub;
-  }, [activeComment]);
+  }, []);
 
   // Auto-dismiss after 5 seconds
   useEffect(() => {
@@ -57,7 +83,7 @@ export const LiveChatBanner: React.FC = () => {
   };
 
   return (
-      <div 
+      <div
         onClick={handleClick}
         className={`fixed bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[480px] z-50 cursor-pointer transition-all duration-300 transform ease-in-out ${isExiting ? 'translate-y-[150%] opacity-0' : 'translate-y-0 opacity-100'}`}
       >

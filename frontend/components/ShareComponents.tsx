@@ -6,7 +6,7 @@ import { ArrowRight } from 'lucide-react';
 
 // --- Share Card (Hidden/Preview) ---
 export const ShareCard: React.FC<{ game: Game; elementRef: React.RefObject<HTMLDivElement> }> = ({ game, elementRef }) => {
-  const getBadgeStyle = (label: TrapLabel) => {
+  const getBadgeStyle = (label?: TrapLabel) => {
     switch (label) {
       case TrapLabel.CITY: return 'bg-[#bf0000] text-white shadow-red-900/30';
       case TrapLabel.DETECTED: return 'bg-red-500 text-white shadow-red-900/20';

@@ -92,7 +92,7 @@ export interface Game {
   odds: Odds;
   publicMoneyPercent: number;
   publicBetsPercent: number;
-  trapLabel: TrapLabel;
+  trapLabel?: TrapLabel; // undefined = game not currently flagged as a trap
   trapMarket?: 'Moneyline' | 'Spread' | 'Total'; // Which market triggered the trap
   trapSide?: 'Home' | 'Away' | 'Over' | 'Under'; // Which side the trap is on
   severityScore: number; // 0-100

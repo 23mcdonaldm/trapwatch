@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, MessageSquare, AlertTriangle, Zap, Clock, Target, Calendar, BarChart2, Heart, Reply, Send, History, ExternalLink, Share2, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { Trigger, SocialPost, Comment, TrapLabel, Game } from '../types';
-import { storageService } from '../services/storage';
-import { ALL_GAMES } from '../constants';
 import { useNavigate } from 'react-router-dom';
 import * as htmlToImage from 'html-to-image';
 import { ShareStatusChangeCard, ShareModal } from './ShareComponents';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { firestore } from '../firebase/firebase';
+import { useAppSelector } from '../store/hooks';
+import { socialApiService } from '../services/fetch.social';
+import { ApiComment, ApiMarket, VoteCounts, opportunityId } from '@/types/social';
 
 // --- Odds Overview ---
 export const OddsOverview: React.FC<{ game: Game }> = ({ game }) => {
@@ -104,7 +107,7 @@ export const OddsOverview: React.FC<{ game: Game }> = ({ game }) => {
 };
 
 // --- Triggers Pills ---
-export const TriggersPills: React.FC<{ triggers: Trigger[]; label: TrapLabel }> = ({ triggers, label }) => {
+export const TriggersPills: React.FC<{ triggers: Trigger[]; label?: TrapLabel }> = ({ triggers, label }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   if (triggers.length === 0) return null;
@@ -399,35 +402,74 @@ export const PeopleSayingSection: React.FC<{ posts: SocialPost[] }> = ({ posts }
   );
 };
 
-export const VoteBar: React.FC<{ gameId: string }> = ({ gameId }) => {
-  const [userVote, setUserVote] = useState(storageService.getVote(gameId)?.selection);
-  const [stats, setStats] = useState(storageService.getGameStats(gameId));
-  
-  const game = ALL_GAMES.find(g => g.id === gameId);
-  const isExpired = game ? new Date(game.startTime).getTime() < Date.now() : false;
+export const VoteBar: React.FC<{ game: Game; market?: ApiMarket }> = ({ game, market: marketProp }) => {
+  const navigate = useNavigate();
+  const market: ApiMarket = marketProp || game.trapMarket || 'Moneyline';
+  const oppId = opportunityId(game.id, market);
 
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const uid = useAppSelector((state) => state.auth.userData?.uid);
+
+  const [counts, setCounts] = useState<VoteCounts>({ home: 0, away: 0, over: 0, under: 0 });
+  const [userSide, setUserSide] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const isExpired = new Date(game.startTime).getTime() < Date.now();
+
+  // Live vote tallies + own vote straight from Firestore (votes are written via the API,
+  // doc id == uid, so one listener gives us both the counts and whether we voted).
   useEffect(() => {
-    setStats(storageService.getGameStats(gameId));
-    setUserVote(storageService.getVote(gameId)?.selection);
-
-    const unsub = storageService.subscribeToChanges(() => {
-        setUserVote(storageService.getVote(gameId)?.selection);
-        setStats(storageService.getGameStats(gameId));
-    });
+    const votesRef = collection(firestore, 'social', oppId, 'votes');
+    const unsub = onSnapshot(votesRef, (snap) => {
+      const next: VoteCounts = { home: 0, away: 0, over: 0, under: 0 };
+      let mine: string | null = null;
+      snap.forEach((doc) => {
+        const side = String(doc.data().side || '').toLowerCase() as keyof VoteCounts;
+        if (side in next) next[side]++;
+        if (uid && doc.id === uid) mine = side;
+      });
+      setCounts(next);
+      setUserSide(mine);
+    }, (err) => console.error('Vote listener error:', err));
     return unsub;
-  }, [gameId]);
+  }, [oppId, uid]);
 
-  const handleVote = (vote: 'TRAP' | 'NOT_TRAP') => {
-    if (isExpired) return;
-    setUserVote(vote);
-    storageService.setVote(gameId, vote);
+  // The two sides of this market's vote
+  const sides: Array<{ key: 'Home' | 'Away' | 'Over' | 'Under'; label: string }> = market === 'Total'
+    ? [
+        { key: 'Over', label: `Over ${game.odds.total ?? ''}`.trim() },
+        { key: 'Under', label: `Under ${game.odds.total ?? ''}`.trim() },
+      ]
+    : [
+        { key: 'Away', label: game.awayTeam.shortName },
+        { key: 'Home', label: game.homeTeam.shortName },
+      ];
+
+  const handleVote = async (side: 'Home' | 'Away' | 'Over' | 'Under') => {
+    if (isExpired || submitting || userSide) return;
+    if (!isAuthenticated) {
+      navigate('/alerts');
+      return;
+    }
+    // Optimistic: show my vote immediately; the listener reconciles counts.
+    setUserSide(side.toLowerCase());
+    setSubmitting(true);
+    try {
+      await socialApiService.postVote(game.id, market, side);
+    } catch (err) {
+      console.error('Failed to vote:', err);
+      setUserSide(null);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const total = stats.trap + stats.not;
-  const trapPercent = total === 0 ? 0 : Math.round((stats.trap / total) * 100);
-  const safePercent = total === 0 ? 0 : 100 - trapPercent;
-  
-  const showResults = !!userVote || isExpired;
+  const sideCount = (key: string) => counts[key.toLowerCase() as keyof VoteCounts] ?? 0;
+  const total = sideCount(sides[0].key) + sideCount(sides[1].key);
+  const firstPercent = total === 0 ? 0 : Math.round((sideCount(sides[0].key) / total) * 100);
+  const secondPercent = total === 0 ? 0 : 100 - firstPercent;
+
+  const showResults = !!userSide || isExpired;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-200">
@@ -437,30 +479,36 @@ export const VoteBar: React.FC<{ gameId: string }> = ({ gameId }) => {
             <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Community Consensus</h4>
          </div>
          <div className="flex gap-2">
-            {isExpired && !userVote && <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 flex items-center gap-1">🔒 Closed</span>}
-            {trapPercent > 75 && <span className="text-xs font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2 py-0.5 rounded border border-orange-100 dark:border-orange-900/30 flex items-center gap-1">🔥 Danger Zone</span>}
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 uppercase">{market}</span>
+            {isExpired && !userSide && <span className="text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 flex items-center gap-1">🔒 Closed</span>}
          </div>
       </div>
       {!showResults ? (
-        <div className="flex gap-3">
-          <button onClick={(e) => { e.stopPropagation(); handleVote('TRAP'); }} className="flex-1 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"><span className="text-lg">⚠️</span> It's a TRAP</button>
-          <button onClick={(e) => { e.stopPropagation(); handleVote('NOT_TRAP'); }} className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"><span className="text-lg">🛡️</span> Safe</button>
-        </div>
+        <>
+          <p className="text-xs text-slate-400 mb-3">Which side are you taking?</p>
+          <div className="flex gap-3">
+            <button onClick={(e) => { e.stopPropagation(); handleVote(sides[0].key); }} disabled={submitting} className="flex-1 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">{sides[0].label}</button>
+            <button onClick={(e) => { e.stopPropagation(); handleVote(sides[1].key); }} disabled={submitting} className="flex-1 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 disabled:opacity-50">{sides[1].label}</button>
+          </div>
+          {!isAuthenticated && (
+            <p className="text-[10px] text-slate-400 mt-2 text-center">Sign in to vote — tapping a side takes you there.</p>
+          )}
+        </>
       ) : (
         <div className="space-y-4 pt-1 animate-in fade-in duration-300">
            <div>
               <div className="flex justify-between items-center mb-1.5">
-                 <span className="text-xs font-bold text-orange-700 dark:text-orange-400 flex items-center gap-1.5">⚠️ It's a TRAP{userVote === 'TRAP' && <span className="bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-200 text-[10px] px-1.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800">You</span>}</span>
-                 <span className="text-sm font-black text-slate-900 dark:text-white">{trapPercent}%</span>
+                 <span className="text-xs font-bold text-orange-700 dark:text-orange-400 flex items-center gap-1.5">{sides[0].label}{userSide === sides[0].key.toLowerCase() && <span className="bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-200 text-[10px] px-1.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800">You</span>}</span>
+                 <span className="text-sm font-black text-slate-900 dark:text-white">{firstPercent}%</span>
               </div>
-              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-orange-500 transition-all duration-1000 ease-out" style={{ width: `${trapPercent}%` }} /></div>
+              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-orange-500 transition-all duration-1000 ease-out" style={{ width: `${firstPercent}%` }} /></div>
            </div>
            <div>
               <div className="flex justify-between items-center mb-1.5">
-                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">🛡️ Safe{userVote === 'NOT_TRAP' && <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-[10px] px-1.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-600">You</span>}</span>
-                 <span className="text-sm font-black text-slate-900 dark:text-white">{safePercent}%</span>
+                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">{sides[1].label}{userSide === sides[1].key.toLowerCase() && <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-[10px] px-1.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-600">You</span>}</span>
+                 <span className="text-sm font-black text-slate-900 dark:text-white">{secondPercent}%</span>
               </div>
-              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-slate-400 transition-all duration-1000 ease-out" style={{ width: `${safePercent}%` }} /></div>
+              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-slate-400 transition-all duration-1000 ease-out" style={{ width: `${secondPercent}%` }} /></div>
            </div>
            <div className="text-right border-t border-slate-100 dark:border-slate-800 pt-2"><span className="text-[10px] text-slate-400 font-medium">{total.toLocaleString()} votes</span></div>
         </div>
@@ -469,93 +517,129 @@ export const VoteBar: React.FC<{ gameId: string }> = ({ gameId }) => {
   );
 };
 
-const CommentItem: React.FC<{ comment: Comment; gameId: string; depth?: number }> = ({ comment, gameId, depth = 0 }) => {
-  const [isReplying, setIsReplying] = useState(false);
-  const [replyText, setReplyText] = useState('');
+// Relative time for comment timestamps
+const timeAgo = (createdAt: number): string => {
+  const diff = Date.now() - createdAt;
+  if (diff < 60000) return 'Just now';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
 
-  const handleLike = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    storageService.toggleLike(gameId, comment.id);
-  };
-
-  const handleReplySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim()) return;
-    storageService.addReply(gameId, comment.id, replyText);
-    setReplyText('');
-    setIsReplying(false);
-  };
-
+const CommentItem: React.FC<{ comment: Comment }> = ({ comment }) => {
   const colors = ['bg-pink-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500', 'bg-teal-500', 'bg-emerald-500', 'bg-orange-500'];
   const colorIndex = comment.displayName.length % colors.length;
   const avatarColor = colors[colorIndex];
 
   return (
-    <div id={`comment-${comment.id}`} className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 ${depth > 0 ? 'mt-3 relative' : ''}`}>
-      {depth > 0 && <div className="absolute -left-6 top-0 w-6 h-6 border-l-2 border-b-2 border-slate-200 dark:border-slate-700 rounded-bl-xl"></div>}
+    <div id={`comment-${comment.id}`} className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full shrink-0 flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-sm ${avatarColor} bg-gradient-to-br from-white/20 to-transparent`}>{comment.displayName.charAt(0)}</div>
       <div className="flex-1 min-w-0">
         <div className="bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors rounded-2xl rounded-tl-none p-3 border border-slate-200/60 dark:border-slate-700 shadow-sm relative group">
           <div className="flex justify-between items-center mb-1">
              <span className="font-bold text-slate-800 dark:text-slate-200 text-xs md:text-sm">{comment.displayName}</span>
-             <span className="text-[10px] text-slate-400">1h ago</span>
+             <span className="text-[10px] text-slate-400">{timeAgo(comment.createdAt)}</span>
           </div>
           <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{comment.text}</p>
         </div>
-        <div className="flex items-center gap-4 mt-1.5 ml-1">
-          <button onClick={handleLike} className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 ${comment.isLiked ? 'text-red-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-            <Heart size={14} className={`transition-transform duration-200 ${comment.isLiked ? 'fill-red-500 scale-110' : ''}`} />{comment.upvotes > 0 && <span>{comment.upvotes}</span>}
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setIsReplying(!isReplying); }} className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-orange-600 dark:hover:text-orange-500 transition-colors"><Reply size={14} />Reply</button>
-        </div>
-        {isReplying && (
-          <form onSubmit={handleReplySubmit} className="mt-3 flex gap-2 animate-in fade-in slide-in-from-top-1">
-             <input type="text" autoFocus value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder={`Replying to ${comment.displayName}...`} className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm" onClick={(e) => e.stopPropagation()} />
-             <button type="submit" className="bg-orange-500 text-white p-2 rounded-lg hover:bg-orange-600 transition-colors shadow-sm" onClick={(e) => e.stopPropagation()}><Send size={16} /></button>
-          </form>
-        )}
-        {comment.replies && comment.replies.length > 0 && (
-          <div className="mt-2 flex flex-col gap-1">{comment.replies.map(reply => <CommentItem key={reply.id} comment={reply} gameId={gameId} depth={depth + 1} />)}</div>
-        )}
       </div>
     </div>
   );
 };
 
-export const CommentsSection: React.FC<{ gameId: string; previewMode?: boolean }> = ({ gameId, previewMode = false }) => {
-  const [comments, setComments] = useState<Comment[]>([]);
+const mapApiComment = (c: ApiComment): Comment => ({
+  id: c.id,
+  displayName: c.displayName || 'Anonymous',
+  text: c.comment,
+  createdAt: Date.parse(c.generatedAt) || Date.now(),
+  upvotes: 0,
+  downvotes: 0,
+});
+
+const COMMENTS_PAGE_SIZE = 20;
+
+export const CommentsSection: React.FC<{ game: Game; market?: ApiMarket; previewMode?: boolean }> = ({ game, market: marketProp, previewMode = false }) => {
+  const navigate = useNavigate();
+  const market: ApiMarket = marketProp || game.trapMarket || 'Moneyline';
+  const oppId = opportunityId(game.id, market);
+
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
+  const userData = useAppSelector((state) => state.auth.userData);
+
+  // Live newest page from Firestore; older pages are appended via the paginated API.
+  const [liveComments, setLiveComments] = useState<Comment[]>([]);
+  const [olderComments, setOlderComments] = useState<Comment[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(storageService.isAuthenticated());
+  const [posting, setPosting] = useState(false);
+
+  const liveLimit = previewMode ? 3 : COMMENTS_PAGE_SIZE;
 
   useEffect(() => {
-    setComments(storageService.getComments(gameId));
-    
-    const unsubComments = storageService.subscribeToComments((gid, comment) => {
-        if (gid === gameId) {
-            setComments(prev => {
-                if (prev.find(c => c.id === comment.id)) return prev;
-                return [comment, ...prev];
-            });
-        }
-    });
-    
-    const unsubAuth = storageService.initAuthListener((state) => {
-        setIsAuthenticated(state.isAuthenticated);
-    });
+    setOlderComments([]);
+    setNextCursor(null);
+    const commentsRef = collection(firestore, 'social', oppId, 'comments');
+    const q = query(commentsRef, orderBy('generatedAt', 'desc'), limit(liveLimit + 1));
+    const unsub = onSnapshot(q, (snap) => {
+      const items: Comment[] = [];
+      snap.forEach((doc) => {
+        items.push(mapApiComment({ id: doc.id, ...(doc.data() as Omit<ApiComment, 'id'>) }));
+      });
+      setLiveComments(items.slice(0, liveLimit));
+      // If Firestore returned one extra doc, there's more history to page through.
+      if (!previewMode && items.length > liveLimit) {
+        setNextCursor((prev) => prev ?? new Date(items[liveLimit - 1].createdAt).toISOString());
+      }
+    }, (err) => console.error('Comments listener error:', err));
+    return unsub;
+  }, [oppId, liveLimit, previewMode]);
 
-    return () => {
-        unsubComments();
-    };
-  }, [gameId]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-    storageService.addComment(gameId, newComment);
-    setNewComment('');
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await socialApiService.getComments(game.id, market, COMMENTS_PAGE_SIZE, nextCursor);
+      setOlderComments((prev) => [...prev, ...page.comments.map(mapApiComment)]);
+      setNextCursor(page.nextCursor);
+    } catch (err) {
+      console.error('Failed to load more comments:', err);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
-  const displayComments = previewMode ? comments.slice(0, 2) : comments;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || posting) return;
+    if (!isAuthenticated) {
+      navigate('/alerts');
+      return;
+    }
+    setPosting(true);
+    try {
+      await socialApiService.postComment(game.id, market, userData?.name || 'Anonymous', newComment.trim());
+      setNewComment('');
+      // No optimistic insert needed — the Firestore listener delivers it instantly.
+    } catch (err) {
+      console.error('Failed to post comment:', err);
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // Merge live + older, dedupe by id (a live update can overlap the first API page)
+  const seen = new Set<string>();
+  const allComments = [...liveComments, ...olderComments].filter(c => {
+    if (seen.has(c.id)) return false;
+    seen.add(c.id);
+    return true;
+  });
+  const displayComments = previewMode ? allComments.slice(0, 2) : allComments;
+  const hasMoreThanPreview = previewMode && allComments.length > 2;
 
   return (
     <div>
@@ -563,35 +647,34 @@ export const CommentsSection: React.FC<{ gameId: string; previewMode?: boolean }
         <div className="flex items-center gap-2">
             <MessageSquare size={16} className="text-slate-400" />
             <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                {comments.length} Comments
+                {allComments.length}{nextCursor ? '+' : ''} Comments
             </h4>
         </div>
-        {!isAuthenticated && (
-            <span className="text-xs text-slate-400">Guest Mode</span>
-        )}
+        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 uppercase">{market}</span>
       </div>
 
       <form onSubmit={handleSubmit} className="mb-6 relative">
-          <input 
-              type="text" 
+          <input
+              type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder={isAuthenticated ? "Add to the conversation..." : "Comment as Guest..."}
+              onClick={(e) => e.stopPropagation()}
+              placeholder={isAuthenticated ? "Add to the conversation..." : "Sign in to join the conversation..."}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all"
           />
-          <button 
-              type="submit" 
-              disabled={!newComment.trim()}
+          <button
+              type="submit"
+              disabled={!newComment.trim() || posting}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-0 transition-all duration-200"
           >
-              <Send size={16} />
+              {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
       </form>
 
       <div className="space-y-4">
         {displayComments.length > 0 ? (
             displayComments.map(comment => (
-                <CommentItem key={comment.id} comment={comment} gameId={gameId} />
+                <CommentItem key={comment.id} comment={comment} />
             ))
         ) : (
             <div className="text-center py-6 text-slate-400 text-sm italic">
@@ -599,10 +682,28 @@ export const CommentsSection: React.FC<{ gameId: string; previewMode?: boolean }
             </div>
         )}
       </div>
-      
-      {previewMode && comments.length > 2 && (
+
+      {previewMode && hasMoreThanPreview && (
           <div className="mt-3 text-center">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">View all {comments.length} comments</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(`/game/${game.id}`); }}
+                className="text-xs font-bold text-orange-600 dark:text-orange-400 hover:underline"
+              >
+                View all comments
+              </button>
+          </div>
+      )}
+
+      {!previewMode && nextCursor && (
+          <div className="mt-4 text-center">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="text-xs font-bold text-orange-600 dark:text-orange-400 hover:underline disabled:opacity-50 flex items-center gap-1.5 mx-auto"
+              >
+                {loadingMore && <Loader2 size={12} className="animate-spin" />}
+                Load older comments
+              </button>
           </div>
       )}
     </div>

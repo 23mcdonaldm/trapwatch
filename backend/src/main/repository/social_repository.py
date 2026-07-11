@@ -44,3 +44,20 @@ def get_social_aggregates(dateET: str) -> Iterable["DocumentSnapshot"]:
         db.collection(SOCIAL_COLLECTION).get()
     )
     return socials
+
+
+def get_social_aggregates_for_game(game_id: str) -> dict[str, dict]:
+    """
+    Get the social aggregate docs for a single game across all markets.
+
+    Social doc ids are f"{game_id}_{market}" with lowercase market names.
+
+    Returns: market (lowercase) -> aggregate dict, only for docs that exist.
+    """
+    db = get_db()
+    aggregates: dict[str, dict] = {}
+    for market in ("moneyline", "spread", "total"):
+        snap = db.collection(SOCIAL_COLLECTION).document(f"{game_id}_{market}").get()
+        if snap.exists:
+            aggregates[market] = snap.to_dict()
+    return aggregates

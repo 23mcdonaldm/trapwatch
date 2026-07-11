@@ -8,6 +8,7 @@ from api.v1.routes.traps import router as traps_router
 from api.v1.routes.feed import router as feed_router
 from api.v1.routes.votes import router as votes_router
 from api.v1.routes.comments import router as comments_router
+from api.v1.routes.games import router as games_router
 
 def create_app() -> FastAPI:
     app = FastAPI(title="TrapWatch Backend", version="0.1.0")
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     app.include_router(feed_router, prefix="/api/v1")
     app.include_router(votes_router, prefix="/api/v1")
     app.include_router(comments_router, prefix="/api/v1")
+    app.include_router(games_router, prefix="/api/v1")
     # app.include_router(tasks_router, prefix="/api")
 
     @app.get("/")

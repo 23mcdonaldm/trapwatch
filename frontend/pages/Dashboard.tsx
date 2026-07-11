@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info, Loader2 } from 'lucide-react';
+import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info, Loader2, LayoutGrid } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_GAMES } from '../constants';
 import { FilterState, TrapLabel, Game } from '../types';
@@ -85,10 +85,13 @@ const Dashboard: React.FC = () => {
       });
     };
 
+    // Apply the trap-label filter by emptying tiers that don't match
+    const matchesLabel = (label: TrapLabel) => filters.label === 'ALL' || filters.label === label;
+
     const filtered = {
-      [TrapLabel.CITY]: applyFilters(groupedGames[TrapLabel.CITY]),
-      [TrapLabel.DETECTED]: applyFilters(groupedGames[TrapLabel.DETECTED]),
-      [TrapLabel.POTENTIAL]: applyFilters(groupedGames[TrapLabel.POTENTIAL]),
+      [TrapLabel.CITY]: matchesLabel(TrapLabel.CITY) ? applyFilters(groupedGames[TrapLabel.CITY]) : [],
+      [TrapLabel.DETECTED]: matchesLabel(TrapLabel.DETECTED) ? applyFilters(groupedGames[TrapLabel.DETECTED]) : [],
+      [TrapLabel.POTENTIAL]: matchesLabel(TrapLabel.POTENTIAL) ? applyFilters(groupedGames[TrapLabel.POTENTIAL]) : [],
     };
 
     return {
@@ -146,8 +149,18 @@ const Dashboard: React.FC = () => {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2 sm:gap-4">
+             {/* All Games Link (Always visible) */}
+             <button
+                  onClick={() => navigate('/games')}
+                  className="flex items-center gap-2 p-2 rounded-full text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors md:px-3 md:rounded-lg"
+                  aria-label="All Games"
+             >
+                   <LayoutGrid size={20} className="text-orange-500" />
+                   <span className="hidden md:inline font-bold text-sm text-slate-700 dark:text-slate-200">All Games</span>
+             </button>
+
              {/* Scoreboard Link (Always visible) */}
-             <button 
+             <button
                   onClick={() => navigate('/scoreboard')}
                   className="flex items-center gap-2 p-2 rounded-full text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors md:px-3 md:rounded-lg"
                   aria-label="Scoreboard"

@@ -55,10 +55,22 @@ export interface ApiOddsSide {
     currentOdds: ApiCurrentOdds;
   }
   
+  export interface ApiSocialAggregate {
+    counts?: { home?: number; away?: number; over?: number; under?: number };
+    commentCount?: number;
+    latestComment?: {
+      commentId: string;
+      userId: string;
+      comment: string;
+      generatedAt: string;
+    } | null;
+  }
+
   export interface ApiTrapEntry {
     market: 'Moneyline' | 'Spread' | 'Total';
     side: 'Home' | 'Away' | 'Over' | 'Under';
     event: ApiGame;
+    social?: ApiSocialAggregate;
   }
 
   export interface ApiFeedResponse {
@@ -71,6 +83,33 @@ export interface ApiOddsSide {
     };
     by_league: {
       [key: string]: ApiGame[];
+    };
+  }
+
+  /** Slim game summary returned by GET /games — just enough to render a clickable row. */
+  export interface ApiGameSummary {
+    id: string;
+    league: string;
+    awayTeam: string;
+    homeTeam: string;
+    gameTimeET: string;
+    status: string;
+  }
+
+  export interface ApiGamesResponse {
+    generatedAt: string;
+    dateET: string;
+    by_league: {
+      [key: string]: ApiGameSummary[];
+    };
+    total: number;
+  }
+
+  export interface ApiGameResponse {
+    generatedAt: string;
+    event: ApiGame;
+    social: {
+      [market: string]: ApiSocialAggregate; // market keys are lowercase
     };
   }
   

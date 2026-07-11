@@ -8,3 +8,6 @@ pandas>=2.0
 google-cloud-firestore>=2.16
 google-auth>=2.30
 
+# Firebase Admin (ID token verification for votes/comments)
+firebase-admin>=6.5
+

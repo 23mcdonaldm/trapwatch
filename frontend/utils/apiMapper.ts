@@ -86,7 +86,16 @@ const formatOdds = (odds: number): string => {
 // Parse gameTimeET to ISO string
 const parseGameTime = (gameTimeET: string): string => {
   // Format: "2026-01-20 10:10PM ET" or "2026-01-20 07:00PM ET"
+  // Also handles the sheet's ISO-style format: "2026-07-11T12:05" (24h, ET wall-clock)
   try {
+    const isoMatch = gameTimeET.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (isoMatch) {
+      const [, y, mo, d, h, mi] = isoMatch;
+      const date = new Date(Date.UTC(parseInt(y), parseInt(mo) - 1, parseInt(d), parseInt(h), parseInt(mi), 0));
+      // ET wall-clock -> UTC (same -5 convention as below)
+      date.setUTCHours(date.getUTCHours() + 5);
+      return date.toISOString();
+    }
     // Remove " ET" suffix
     const timeStr = gameTimeET.replace(' ET', '').trim();
     // Parse the date and time
@@ -392,6 +401,81 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
       label: trapLabel,
       timestamp: apiGame.lastUpdatedAt,
     }],
+  };
+};
+
+// Resolve team objects (logos, colors, short names) for a slim game summary row.
+export const mapSummaryTeams = (
+  summary: { league: string; homeTeam: string; awayTeam: string }
+): { league: League; homeTeam: Team; awayTeam: Team } => {
+  const league = LEAGUE_MAP[summary.league] || League.NFL;
+  return {
+    league,
+    homeTeam: findTeamByName(summary.homeTeam, league) || createDefaultTeam(summary.homeTeam),
+    awayTeam: findTeamByName(summary.awayTeam, league) || createDefaultTeam(summary.awayTeam),
+  };
+};
+
+// Parse a sheet-style gameTimeET ("2026-07-11T12:05") to an ISO string — exported
+// for pages that work with slim summaries instead of full Game objects.
+export const parseGameTimeET = (gameTimeET: string): string => parseGameTime(gameTimeET);
+
+// Map a standalone API game (which may or may not be a flagged trap) to the frontend Game type.
+// If any market has a trap Status, reuse mapTrapEntryToGame with the highest-severity market;
+// otherwise build a plain game with no trap fields.
+export const mapApiGameToGame = (apiGame: ApiGame): Game => {
+  // Find the highest-severity flagged market (TC > TD > TP)
+  const statusRank: Record<string, number> = { TC: 3, TD: 2, TP: 1 };
+  let best: { market: 'Moneyline' | 'Spread' | 'Total'; side: string; rank: number } | null = null;
+
+  (['Moneyline', 'Spread', 'Total'] as const).forEach(market => {
+    const marketOdds = apiGame.currentOdds[market];
+    if (!marketOdds?.Status || !marketOdds?.StatusSide) return;
+    const rank = statusRank[marketOdds.Status] || 0;
+    if (rank > 0 && (!best || rank > best.rank)) {
+      best = { market, side: marketOdds.StatusSide, rank };
+    }
+  });
+
+  if (best) {
+    return mapTrapEntryToGame({
+      market: best.market,
+      side: best.side as 'Home' | 'Away' | 'Over' | 'Under',
+      event: apiGame,
+    });
+  }
+
+  // No trap on any market — plain game card
+  const league = LEAGUE_MAP[apiGame.league] || League.NFL;
+  const homeTeamData = findTeamByName(apiGame.homeTeam, league) || createDefaultTeam(apiGame.homeTeam);
+  const awayTeamData = findTeamByName(apiGame.awayTeam, league) || createDefaultTeam(apiGame.awayTeam);
+
+  const homeML = apiGame.currentOdds.Moneyline?.Home?.odds ?? 0;
+  const awayML = apiGame.currentOdds.Moneyline?.Away?.odds ?? 0;
+  const homeFavorite = homeML < awayML;
+  const favoriteSide = homeFavorite ? apiGame.currentOdds.Moneyline?.Home : apiGame.currentOdds.Moneyline?.Away;
+
+  return {
+    id: apiGame.id,
+    league,
+    startTime: parseGameTime(apiGame.gameTimeET),
+    homeTeam: homeTeamData,
+    awayTeam: awayTeamData,
+    isHomeFavorite: homeFavorite,
+    odds: {
+      spread: apiGame.currentOdds.Spread?.Line !== undefined
+        ? formatSpreadLine(apiGame.currentOdds.Spread.Line, homeFavorite ? 'Home' : 'Away')
+        : '',
+      moneyline: formatOdds(homeFavorite ? homeML : awayML),
+      total: apiGame.currentOdds.Total?.Line !== undefined ? apiGame.currentOdds.Total.Line.toString() : undefined,
+      totalOver: apiGame.currentOdds.Total?.Over ? formatOdds(apiGame.currentOdds.Total.Over.odds) : undefined,
+      totalUnder: apiGame.currentOdds.Total?.Under ? formatOdds(apiGame.currentOdds.Total.Under.odds) : undefined,
+    },
+    publicMoneyPercent: Math.round(favoriteSide?.handlePct ?? 0),
+    publicBetsPercent: Math.round(favoriteSide?.betsPct ?? 0),
+    severityScore: 0,
+    trapTriggers: [],
+    whatPeopleAreSaying: [],
   };
 };
 

@@ -125,7 +125,15 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                 
                 {/* Info */}
                 <div className="min-w-0">
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-xl leading-tight truncate">
+                  <h3
+                    onClick={(e) => {
+                      if (isDetailView) return;
+                      e.stopPropagation();
+                      navigate(`/game/${game.id}`);
+                    }}
+                    className={`font-bold text-slate-900 dark:text-white text-base sm:text-xl leading-tight truncate ${!isDetailView ? 'cursor-pointer hover:text-orange-600 dark:hover:text-orange-400 transition-colors' : ''}`}
+                    title={!isDetailView ? 'Open game page' : undefined}
+                  >
                       {game.awayTeam.shortName} <span className="text-slate-300 dark:text-slate-600 font-normal">vs</span> {game.homeTeam.shortName}
                   </h3>
                   <div className="flex items-center gap-2 mt-1 sm:mt-1.5">
@@ -164,11 +172,13 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-4">
-                  {/* Badge */}
-                  <div className={`flex items-center justify-center sm:justify-start gap-1.5 w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-full sm:rounded-lg ${labelConfig.style}`}>
-                      <span className="text-sm">{labelConfig.icon}</span>
-                      <span className="hidden sm:inline text-xs sm:text-sm font-bold whitespace-nowrap uppercase tracking-tight">{game.trapLabel}</span>
-                  </div>
+                  {/* Badge (only for games flagged as traps) */}
+                  {game.trapLabel && (
+                    <div className={`flex items-center justify-center sm:justify-start gap-1.5 w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-full sm:rounded-lg ${labelConfig.style}`}>
+                        <span className="text-sm">{labelConfig.icon}</span>
+                        <span className="hidden sm:inline text-xs sm:text-sm font-bold whitespace-nowrap uppercase tracking-tight">{game.trapLabel}</span>
+                    </div>
+                  )}
 
                   {/* Controls */}
                   <div className="flex items-center text-slate-400 sm:pl-4 sm:border-l border-slate-100 dark:border-slate-700">
@@ -283,11 +293,11 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                 <PeopleSayingSection posts={game.whatPeopleAreSaying} />
 
                 {/* 5. Community Consensus / Vote Bar */}
-                <VoteBar gameId={game.id} />
-                
+                <VoteBar game={game} />
+
                 {/* 6. Comments */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
-                  <CommentsSection gameId={game.id} previewMode={!isDetailView} />
+                  <CommentsSection game={game} previewMode={!isDetailView} />
                 </div>
 
                 {/* 7. Share Actions */}
