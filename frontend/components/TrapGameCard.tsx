@@ -152,7 +152,9 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                           {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} {game.odds.spread}
                         </>
                       ) : game.trapMarket === 'Total' ? (
-                        game.odds.total
+                        <>
+                          {game.trapSide === 'Over' ? 'Over' : 'Under'} {game.odds.total}
+                        </>
                       ) : (
                         <>
                           {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} {game.odds.moneyline}
@@ -228,7 +230,7 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                        {!game.trapMarket || game.trapMarket === 'Moneyline' ? 'Moneyline' : game.trapMarket === 'Spread' ? 'Spread' : 'Total'}
                      </div>
                      <div className="text-2xl font-bold font-mono relative z-10 mt-1 text-[var(--fav-color)] dark:text-white tracking-tight">
-                       {!game.trapMarket || game.trapMarket === 'Moneyline' ? game.odds.moneyline : game.trapMarket === 'Spread' ? game.odds.spread : game.odds.total}
+                       {!game.trapMarket || game.trapMarket === 'Moneyline' ? game.odds.moneyline : game.trapMarket === 'Spread' ? game.odds.spread : game.trapMarket === 'Total' ? `${game.trapSide === 'Over' ? 'Over' : 'Under'} ${game.odds.total}` : game.odds.total}
                      </div>
                 </div>
             </div>
@@ -243,7 +245,7 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                         {game.trapMarket === 'Spread' ? (
                           <span className="font-mono">{game.odds.spread}</span>
                         ) : game.trapMarket === 'Total' ? (
-                          <span className="font-mono">{game.odds.total}</span>
+                          <span className="font-mono">{game.trapSide === 'Over' ? 'Over' : 'Under'} {game.odds.total}</span>
                         ) : game.trapMarket === 'Moneyline' ? (
                           <>
                             {game.isHomeFavorite ? game.homeTeam.shortName : game.awayTeam.shortName} <span className="font-mono ml-1 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{game.odds.moneyline}</span>
@@ -260,7 +262,7 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                       {game.trapMarket === 'Spread' ? 'Spread' : game.trapMarket === 'Total' ? 'Total' : game.trapMarket === 'Moneyline' ? 'Moneyline' : 'Moneyline'}
                     </div>
                     <div className="text-base font-bold font-mono text-[var(--fav-color)] dark:text-white mt-1" style={{ '--fav-color': favoriteColor } as React.CSSProperties}>
-                      {game.trapMarket === 'Spread' ? game.odds.spread : game.trapMarket === 'Total' ? game.odds.total : game.odds.moneyline}
+                      {game.trapMarket === 'Spread' ? game.odds.spread : game.trapMarket === 'Total' ? `${game.trapSide === 'Over' ? 'Over' : 'Under'} ${game.odds.total}` : game.odds.moneyline}
                     </div>
                 </div>
             </div>

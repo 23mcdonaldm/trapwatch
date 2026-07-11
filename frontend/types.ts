@@ -43,7 +43,9 @@ export interface Team {
 export interface Odds {
   spread: string;
   moneyline: string;
-  total?: string; // Over/Under total
+  total?: string; // Over/Under total line
+  totalOver?: string; // Over odds (e.g., "-110")
+  totalUnder?: string; // Under odds (e.g., "-110")
 }
 
 export interface Trigger {
@@ -92,6 +94,7 @@ export interface Game {
   publicBetsPercent: number;
   trapLabel: TrapLabel;
   trapMarket?: 'Moneyline' | 'Spread' | 'Total'; // Which market triggered the trap
+  trapSide?: 'Home' | 'Away' | 'Over' | 'Under'; // Which side the trap is on
   severityScore: number; // 0-100
   trapTriggers: Trigger[];
   whatPeopleAreSaying: SocialPost[];

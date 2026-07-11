@@ -281,6 +281,8 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
   let spread: string | undefined;
   let moneyline: string | undefined;
   let total: string | undefined;
+  let totalOver: string | undefined;
+  let totalUnder: string | undefined;
   let publicMoneyPercent: number;
   let publicBetsPercent: number;
   let trapIsOnHome: boolean;
@@ -304,6 +306,8 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
     // Include total for reference
     if (apiGame.currentOdds.Total?.Line !== undefined) {
       total = apiGame.currentOdds.Total.Line.toString();
+      totalOver = formatOdds(apiGame.currentOdds.Total.Over.odds);
+      totalUnder = formatOdds(apiGame.currentOdds.Total.Under.odds);
     }
     
   } else if (market === 'Spread') {
@@ -327,6 +331,8 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
     // Include total for reference
     if (apiGame.currentOdds.Total?.Line !== undefined) {
       total = apiGame.currentOdds.Total.Line.toString();
+      totalOver = formatOdds(apiGame.currentOdds.Total.Over.odds);
+      totalUnder = formatOdds(apiGame.currentOdds.Total.Under.odds);
     }
     
   } else if (market === 'Total') {
@@ -341,6 +347,8 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
     
     statusFactors = apiGame.currentOdds.Total?.StatusFactors;
     total = apiGame.currentOdds.Total.Line.toString();
+    totalOver = formatOdds(apiGame.currentOdds.Total.Over.odds);
+    totalUnder = formatOdds(apiGame.currentOdds.Total.Under.odds);
     publicMoneyPercent = Math.round(trapSide.handlePct);
     publicBetsPercent = Math.round(trapSide.betsPct);
     
@@ -369,11 +377,14 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
       spread,
       moneyline,
       total,
+      totalOver,
+      totalUnder,
     },
     publicMoneyPercent,
     publicBetsPercent,
     trapLabel,
     trapMarket,
+    trapSide: side as 'Home' | 'Away' | 'Over' | 'Under',
     severityScore: calculateSeverityScore(trapSide, trapLabel),
     trapTriggers: generateTriggers(statusFactors, trapMarket, trapSide, trapLabel, side, trapIsOnHome, apiGame),
     whatPeopleAreSaying: [], // Will be populated later or from another endpoint

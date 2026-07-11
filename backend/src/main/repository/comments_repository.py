@@ -11,7 +11,7 @@ GAMES_COLLECTION = "social"
 COMMENTS_SUBCOLLECTION = "comments"
 
 
-def insert_user_comment(opportunity_id: str, user_id: str, comment: str, generatedAt: str) -> bool:
+def insert_user_comment(opportunity_id: str, user_id: str, display_name: str, comment: str, generatedAt: str) -> bool:
     """
     Insert a user comment for a given opportunity.
 
@@ -32,6 +32,7 @@ def insert_user_comment(opportunity_id: str, user_id: str, comment: str, generat
         {
             # Keep consistent with frontend naming (camelCase)
             "userId": user_id,
+            "displayName": display_name,
             "comment": comment,
             "generatedAt": generatedAt,
         },

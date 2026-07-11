@@ -87,13 +87,13 @@ export const OddsOverview: React.FC<{ game: Game }> = ({ game }) => {
             <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Total</div>
             <div className="flex items-center justify-center gap-3">
               <div className="text-center">
-                <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Over</div>
-                <div className="text-sm font-bold font-mono text-slate-900 dark:text-white">{game.odds.total}</div>
+                <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Over {game.odds.total}</div>
+                <div className="text-sm font-bold font-mono text-slate-900 dark:text-white">{game.odds.totalOver || '—'}</div>
               </div>
               <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
               <div className="text-center">
-                <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Under</div>
-                <div className="text-sm font-bold font-mono text-slate-900 dark:text-white">{game.odds.total}</div>
+                <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Under {game.odds.total}</div>
+                <div className="text-sm font-bold font-mono text-slate-900 dark:text-white">{game.odds.totalUnder || '—'}</div>
               </div>
             </div>
           </div>
