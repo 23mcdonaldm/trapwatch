@@ -64,6 +64,7 @@ trapwatch/
 │       ├── dto/                 Request/response models
 │       └── enums/                League, trap status, event status
 ├── functions/            Firebase Cloud Functions (vote/comment aggregation)
+├── apps-script/          Google Apps Script scraping DK betting splits into the sheet
 └── docs/                  Deployment notes
 ```
 

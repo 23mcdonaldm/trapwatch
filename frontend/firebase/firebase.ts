@@ -5,13 +5,13 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC7yXY7vKtzsmKWpSgd3-IxpDSEybdHCvw",
-  authDomain: "gen-lang-client-0521438359.firebaseapp.com",
-  projectId: "gen-lang-client-0521438359",
-  storageBucket: "gen-lang-client-0521438359.firebasestorage.app",
-  messagingSenderId: "145467541462",
-  appId: "1:145467541462:web:170aaefbfda77d32444677",
-  measurementId: "G-VRM97S260Y"
+  apiKey: "AIzaSyBb9hv-CZtSwlxRuTTrfD8xTiDJMUEoYKw",
+  authDomain: "trapwatch-2d010.firebaseapp.com",
+  projectId: "trapwatch-2d010",
+  storageBucket: "trapwatch-2d010.firebasestorage.app",
+  messagingSenderId: "303636092972",
+  appId: "1:303636092972:web:231a6d03bc84f30d7f9989",
+  measurementId: "G-K21DSZQLG0"
 };
 
 const app = initializeApp(firebaseConfig);

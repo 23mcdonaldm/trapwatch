@@ -18,6 +18,7 @@ LEAGUE_GID_ATTR_MAP: dict[LeagueKey, str] = {
     LeagueKey.NCAAF: "ncaaf_gid",
     LeagueKey.NHL: "nhl_gid",
     LeagueKey.NFL: "nfl_gid",
+    LeagueKey.MLB: "mlb_gid",
 }
 
 def get_spreadsheet_df(base_url: str, gid: str) -> pd.DataFrame:

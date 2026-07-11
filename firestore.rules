@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Client SDK only ever touches its own user profile doc directly
+    // (frontend/services/firestore.ts). Everything else — odds, events,
+    // votes, comments — is written by the backend's Firebase Admin SDK,
+    // which bypasses these rules, or read here as public data.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Odds/events/traps feed data: public read, admin-only write.
+    match /odds/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /events/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Social (votes/comments aggregates): public read, admin-only write.
+    match /social/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

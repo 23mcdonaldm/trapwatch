@@ -25,6 +25,12 @@ gcloud auth application-default login
 gcloud config set project YOUR_GCP_PROJECT_ID
 ```
 
+ex:
+```bash
+gcloud auth login
+gcloud config set project trapwatch-2d010
+```
+
 ### 2) Run backend
 
 ```
