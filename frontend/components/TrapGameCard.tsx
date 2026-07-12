@@ -4,7 +4,7 @@ import { TriggersPills, PeopleSayingSection, CommentsSection, VoteBar, TrapHisto
 import { ScoreBadge, SystemOutcomeChip } from './ScoreBadge';
 import { ShareButtons } from './ShareComponents';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronRight, Share2 } from 'lucide-react';
 
 interface Props {
   game: Game;
@@ -288,6 +288,21 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Link to the full game page (dropdown lives on list pages only) */}
+            {!isDetailView && (
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(`/game/${game.id}`); }}
+                className="w-full mb-6 flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm hover:border-orange-300 dark:hover:border-orange-800 hover:shadow-md transition-all group"
+              >
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  Full game page — all three markets, votes &amp; comments
+                </span>
+                <span className="text-orange-600 dark:text-orange-400 font-bold text-sm flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                  Open <ChevronRight size={16} />
+                </span>
+              </button>
+            )}
 
             {/* Vertical Stack of Sections */}
             <div className="flex flex-col gap-6">
