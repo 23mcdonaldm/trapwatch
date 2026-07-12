@@ -1,21 +1,21 @@
 # Frontend Surfaces: My Picks, Leaderboard, System Record, Live/Final Scores — Design
 
 **Date:** 2026-07-11
-**Status:** Approved — implementation in progress
+**Status:** Implemented & verified in browser (2026-07-11)
 **Depends on:** 2026-07-11-results-records-design.md (backend, shipped in 76bb60e)
 
 ## Implementation checklist (update as steps complete)
 
-- [ ] 1. Poller persists `liveScore` for matched in-progress games (scores_task.py)
-- [ ] 2. Slim games summary (`GET /games`) includes status/liveScore/finalScore/scoresUpdatedAt
-- [ ] 3. Frontend types: score fields on `Game` + `ApiGame`/`ApiGameSummary`; records/picks/leaderboard API types
-- [ ] 4. `services/fetch.records.ts` — getMyRecord, getMyPicks, getSystemRecords, getLeaderboard
-- [ ] 5. `utils/grading.ts` — frontend mirror of grading rules for W/L/P chips
-- [ ] 6. Score badges: TrapGameCard (+ system W/L/P chip on completed trap markets), AllGames rows, GameDetail header
-- [ ] 7. `/picks` page (My Record + pick history, paginated) + nav entries (Dashboard header icon, Scoreboard personal card link)
-- [ ] 8. Scoreboard rewired to real `/leaderboard` + `/users/me/record`; mock-only features removed (Following tab, time windows, streaks); Most Wins | Win % toggle (min 5 picks)
-- [ ] 9. Dashboard: System Record strip (overall + per-tier) from `/records/system`; also shown as card on Scoreboard
-- [ ] 10. Build + typecheck + browser verification
+- [x] 1. Poller persists `liveScore` for matched in-progress games (scores_task.py)
+- [x] 2. Slim games summary (`GET /games`) includes status/liveScore/finalScore/scoresUpdatedAt
+- [x] 3. Frontend types: score fields on `Game` (+trapLine) + `ApiGame`/`ApiGameSummary` (types/odds.ts); types/records.ts
+- [x] 4. `services/fetch.records.ts` — getMyRecord, getMyPicks, getSystemRecords, getLeaderboard
+- [x] 5. `utils/grading.ts` — frontend mirror of grading rules for W/L/P chips
+- [x] 6. Score badges: components/ScoreBadge.tsx (ScoreBadge + SystemOutcomeChip) wired into TrapGameCard, AllGames rows, GameDetail header
+- [x] 7. `/picks` page (pages/MyPicks.tsx, route added) + nav: Dashboard header "My Picks" (Target icon), Scoreboard header icon + personal-card button
+- [x] 8. Scoreboard rewritten on real `/leaderboard` + `/users/me/record`; mock features removed; Most Wins | Win % toggle (MIN_PICKS_FOR_PCT=5)
+- [x] 9. components/SystemRecordStrip.tsx on Dashboard hero + Scoreboard ("TrapWatch vs The Public")
+- [x] 10. tsc + vite build clean; verified in browser with real graded data: Dashboard strip (3-10, 23%, tier chips), trap cards FINAL + score + red L chips, All Games rows FINAL + scores (all 10 MLB), Scoreboard real leaderboard (test user 1-0) + toggle + system card, /picks login gate. Signed-in /picks view unverified in browser (no login) — API verified via curl; Miles to click-test.
 
 ## Key decisions
 

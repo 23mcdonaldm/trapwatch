@@ -100,6 +100,13 @@ export interface Game {
   whatPeopleAreSaying: SocialPost[];
   trapHistory?: TrapHistoryEvent[];
   finalOutcome?: 'TRAP' | 'NOT_TRAP'; // For historical scoring
+  // Score state from the scores poller (freshness = poll cadence, not real-time)
+  status?: 'unstarted' | 'live' | 'completed';
+  liveScore?: { home: number; away: number };
+  finalScore?: { home: number; away: number };
+  scoresUpdatedAt?: string;
+  // Line of the flagged market — needed to grade the trap client-side (W/L/P chip)
+  trapLine?: number;
 }
 
 export interface UserPreferences {

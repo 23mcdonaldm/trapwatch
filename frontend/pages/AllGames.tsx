@@ -4,6 +4,7 @@ import { ArrowLeft, Trophy, Search, Loader2, LayoutGrid, ChevronRight } from 'lu
 import { FilterState, League } from '../types';
 import { ApiGameSummary } from '@/types/odds';
 import { DatePicker } from '../components/FiltersBar';
+import { ScoreBadge } from '../components/ScoreBadge';
 import { gamesApiService } from '../services/fetch.games';
 import { mapSummaryTeams, parseGameTimeET } from '../utils/apiMapper';
 
@@ -40,8 +41,14 @@ const GameRow: React.FC<{ game: ApiGameSummary }> = ({ game }) => {
             {awayTeam.shortName} <span className="text-slate-300 dark:text-slate-600 font-normal">@</span> {homeTeam.shortName}
           </div>
           <div className="text-[11px] sm:text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">
-            {new Date(startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-            {started && <span className="ml-2 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 uppercase">Started</span>}
+            {game.status === 'live' || game.status === 'completed' ? (
+              <ScoreBadge score={game} awayAbbr={awayTeam.shortName} homeAbbr={homeTeam.shortName} />
+            ) : (
+              <>
+                {new Date(startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {started && <span className="ml-2 text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 uppercase">Started</span>}
+              </>
+            )}
           </div>
         </div>
       </div>

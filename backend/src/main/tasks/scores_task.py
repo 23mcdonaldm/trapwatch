@@ -198,8 +198,14 @@ async def poll_league(league: LeagueKey, now: datetime) -> dict:
             traps_recorded += summary["traps_recorded"]
         else:
             start = _parse_game_time_et(event.get("gameTimeET", ""))
-            if start is not None and start <= now and event.get("status") != EventStatus.LIVE.value:
-                update_event_scores(event["id"], {"status": EventStatus.LIVE.value, "scoresUpdatedAt": now.isoformat()})
+            if start is not None and start <= now:
+                fields = {"status": EventStatus.LIVE.value, "scoresUpdatedAt": now.isoformat()}
+                # In-progress games carry a partial scores array — persist it so
+                # cards can show the live score (freshness = poll cadence).
+                live_score = _extract_final_score(api_event)
+                if live_score is not None:
+                    fields["liveScore"] = live_score
+                update_event_scores(event["id"], fields)
 
     return {
         "league": league.value,

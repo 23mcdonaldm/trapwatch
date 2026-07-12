@@ -44,6 +44,11 @@ export interface ApiOddsSide {
     Total?: ApiTotalOdds;
   }
   
+  export interface ApiScore {
+    home: number;
+    away: number;
+  }
+
   export interface ApiGame {
     status: string;
     id: string;
@@ -53,6 +58,9 @@ export interface ApiOddsSide {
     gameTimeET: string;
     lastUpdatedAt: string;
     currentOdds: ApiCurrentOdds;
+    liveScore?: ApiScore | null;
+    finalScore?: ApiScore | null;
+    scoresUpdatedAt?: string | null;
   }
   
   export interface ApiSocialAggregate {
@@ -94,6 +102,9 @@ export interface ApiOddsSide {
     homeTeam: string;
     gameTimeET: string;
     status: string;
+    liveScore?: ApiScore | null;
+    finalScore?: ApiScore | null;
+    scoresUpdatedAt?: string | null;
   }
 
   export interface ApiGamesResponse {

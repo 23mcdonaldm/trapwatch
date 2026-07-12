@@ -5,6 +5,7 @@ import { Game, TrapLabel, TRAP_STATUS_MAP } from '../types';
 import { ApiGame, ApiGameSummary, ApiOddsSide } from '@/types/odds';
 import { ApiMarket } from '@/types/social';
 import { VoteBar, CommentsSection } from '../components/GameComponents';
+import { ScoreBadge } from '../components/ScoreBadge';
 import { gamesApiService } from '../services/fetch.games';
 import { mapApiGameToGame, mapSummaryTeams, parseGameTimeET } from '../utils/apiMapper';
 
@@ -209,6 +210,11 @@ const GameDetail: React.FC = () => {
                 <div className="text-sm font-medium text-slate-400 dark:text-slate-500 mt-1.5">
                   {new Date(game.startTime).toLocaleDateString([], { month: 'short', day: 'numeric' })} · {new Date(game.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                 </div>
+                {(game.status === 'live' || game.status === 'completed') && (
+                  <div className="mt-2">
+                    <ScoreBadge score={game} awayAbbr={game.awayTeam.shortName} homeAbbr={game.homeTeam.shortName} size="md" />
+                  </div>
+                )}
               </div>
             </div>
             {game.trapLabel && trapBadge(apiGame.currentOdds[game.trapMarket || 'Moneyline']?.Status)}

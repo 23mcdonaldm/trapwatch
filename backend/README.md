@@ -77,3 +77,28 @@ Run a specific test
 cd backend
 python -m unittest src.test.csv_odds_test.CsvOddsRepositoryTests.test_upsert_csv_odds_writes_main_doc_and_history -v
 ```
+
+Run poller
+
+curl -X POST "http://localhost:8000/api/tasks/poll-scores" -H "X-Scheduler-Secret: devsecret"
+
+
+run getting events
+
+http://localhost:8000/api/v1/csv-odds
+
+
+when setting up cloud run:
+
+# Odds import (no secret required today — unauthenticated)
+gcloud scheduler jobs create http import-odds \
+  --schedule "*/15 * * * *" \
+  --uri "https://<cloud-run-url>/api/v1/csv-odds" \
+  --http-method GET
+
+# Score polling (secret-guarded)
+gcloud scheduler jobs create http poll-scores \
+  --schedule "*/30 * * * *" \
+  --uri "https://<cloud-run-url>/api/tasks/poll-scores" \
+  --http-method POST \
+  --headers "X-Scheduler-Secret=<your-secret>"

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info, Loader2, LayoutGrid } from 'lucide-react';
+import { Bell, User, Calendar, Moon, Sun, Trophy, TrendingUp, Info, Loader2, LayoutGrid, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_GAMES } from '../constants';
 import { FilterState, TrapLabel, Game } from '../types';
 import TrapGameCard from '../components/TrapGameCard';
 import { FiltersBar } from '../components/FiltersBar';
+import { SystemRecordStrip } from '../components/SystemRecordStrip';
 import { useAppSelector } from '../store/hooks';
 import { apiService } from '@/services/fetch.feed';
 import { mapApiFeedToGames } from '../utils/apiMapper';
@@ -169,6 +170,16 @@ const Dashboard: React.FC = () => {
                    <span className="hidden md:inline font-bold text-sm text-slate-700 dark:text-slate-200">Scoreboard</span>
              </button>
 
+             {/* My Picks Link (Always visible; page itself gates on auth) */}
+             <button
+                  onClick={() => navigate('/picks')}
+                  className="flex items-center gap-2 p-2 rounded-full text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors md:px-3 md:rounded-lg"
+                  aria-label="My Picks"
+             >
+                   <Target size={20} className="text-orange-500" />
+                   <span className="hidden md:inline font-bold text-sm text-slate-700 dark:text-slate-200">My Picks</span>
+             </button>
+
              {/* Auth-dependent buttons */}
              {isAuthenticated ? (
                /* Profile Button (when signed in) */
@@ -233,6 +244,11 @@ const Dashboard: React.FC = () => {
           <span className="font-bold text-slate-700 dark:text-slate-300 text-sm md:text-base">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
+        </div>
+
+        {/* System (Trap City) record vs the public */}
+        <div className="max-w-xl mx-auto">
+          <SystemRecordStrip />
         </div>
       </div>
 

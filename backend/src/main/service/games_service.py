@@ -39,6 +39,9 @@ async def get_games(dateET: str) -> tuple[dict[str, Any], int]:
             "homeTeam": event_data.get("homeTeam"),
             "gameTimeET": event_data.get("gameTimeET"),
             "status": event_data.get("status"),
+            "liveScore": event_data.get("liveScore"),
+            "finalScore": event_data.get("finalScore"),
+            "scoresUpdatedAt": event_data.get("scoresUpdatedAt"),
         })
         total += 1
 

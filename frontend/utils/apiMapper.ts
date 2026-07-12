@@ -401,6 +401,15 @@ export const mapTrapEntryToGame = (trapEntry: ApiTrapEntry): Game => {
       label: trapLabel,
       timestamp: apiGame.lastUpdatedAt,
     }],
+    status: (apiGame.status as Game['status']) || undefined,
+    liveScore: apiGame.liveScore || undefined,
+    finalScore: apiGame.finalScore || undefined,
+    scoresUpdatedAt: apiGame.scoresUpdatedAt || undefined,
+    trapLine: trapMarket === 'Spread'
+      ? apiGame.currentOdds.Spread?.Line
+      : trapMarket === 'Total'
+      ? apiGame.currentOdds.Total?.Line
+      : undefined,
   };
 };
 
@@ -419,6 +428,14 @@ export const mapSummaryTeams = (
 // Parse a sheet-style gameTimeET ("2026-07-11T12:05") to an ISO string — exported
 // for pages that work with slim summaries instead of full Game objects.
 export const parseGameTimeET = (gameTimeET: string): string => parseGameTime(gameTimeET);
+
+// Score/status subset shared by every Game mapping (poller-written fields).
+const scoreFields = (apiGame: ApiGame): Pick<Game, 'status' | 'liveScore' | 'finalScore' | 'scoresUpdatedAt'> => ({
+  status: (apiGame.status as Game['status']) || undefined,
+  liveScore: apiGame.liveScore || undefined,
+  finalScore: apiGame.finalScore || undefined,
+  scoresUpdatedAt: apiGame.scoresUpdatedAt || undefined,
+});
 
 // Map a standalone API game (which may or may not be a flagged trap) to the frontend Game type.
 // If any market has a trap Status, reuse mapTrapEntryToGame with the highest-severity market;
@@ -476,6 +493,7 @@ export const mapApiGameToGame = (apiGame: ApiGame): Game => {
     severityScore: 0,
     trapTriggers: [],
     whatPeopleAreSaying: [],
+    ...scoreFields(apiGame),
   };
 };
 

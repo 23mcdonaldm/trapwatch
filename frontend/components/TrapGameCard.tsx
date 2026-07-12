@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Game, TrapLabel, TrapHistoryEvent } from '../types';
 import { TriggersPills, PeopleSayingSection, CommentsSection, VoteBar, TrapHistory, OddsOverview } from './GameComponents';
+import { ScoreBadge, SystemOutcomeChip } from './ScoreBadge';
 import { ShareButtons } from './ShareComponents';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Share2 } from 'lucide-react';
@@ -140,9 +141,17 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                       <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 uppercase tracking-wider">
                           {game.league}
                       </span>
-                      <span className="text-[10px] sm:text-xs font-medium text-slate-400 dark:text-slate-500">
-                          {new Date(game.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                      </span>
+                      {game.status === 'live' || game.status === 'completed' ? (
+                        <ScoreBadge
+                          score={game}
+                          awayAbbr={game.awayTeam.shortName}
+                          homeAbbr={game.homeTeam.shortName}
+                        />
+                      ) : (
+                        <span className="text-[10px] sm:text-xs font-medium text-slate-400 dark:text-slate-500">
+                            {new Date(game.startTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </span>
+                      )}
                   </div>
                </div>
             </div>
@@ -172,6 +181,9 @@ const TrapGameCard: React.FC<Props> = ({ game, isDetailView = false }) => {
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-4">
+                  {/* System result on the flagged market once the game is final */}
+                  <SystemOutcomeChip game={game} />
+
                   {/* Badge (only for games flagged as traps) */}
                   {game.trapLabel && (
                     <div className={`flex items-center justify-center sm:justify-start gap-1.5 w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-full sm:rounded-lg ${labelConfig.style}`}>
