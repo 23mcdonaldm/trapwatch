@@ -44,6 +44,11 @@ var LEAGUES = [
 
 var HEADER = ['Matchup', 'Game Time ET', 'Market', 'Selection', 'Odds', 'Handle %', 'Bets %', 'Diff', 'Flag'];
 
+// The DK splits table paginates at 10 games per page (?tb_page=N). A full MLB
+// day alone is ~15 games, so every page must be fetched. Safety cap on pages
+// per league in case the pager markup ever changes.
+var MAX_PAGES_PER_LEAGUE = 15;
+
 var FETCH_OPTIONS = {
   muteHttpExceptions: true,
   followRedirects: true,
@@ -63,14 +68,9 @@ function updateAllSplits() {
 
   for (var i = 0; i < LEAGUES.length; i++) {
     var cfg = LEAGUES[i];
-    var rows;
+    var result;
     try {
-      var url = DK_SPLITS_URL + '?tb_eg=' + cfg.eventGroup + '&tb_edate=n30days';
-      var resp = UrlFetchApp.fetch(url, FETCH_OPTIONS);
-      if (resp.getResponseCode() !== 200) {
-        throw new Error('HTTP ' + resp.getResponseCode());
-      }
-      rows = parseSplitsPage(resp.getContentText(), new Date());
+      result = fetchLeagueRows(cfg, new Date());
     } catch (e) {
       // Leave the tab's existing data alone if the fetch/parse fails —
       // stale odds beat an empty sheet mid-slate.
@@ -78,8 +78,8 @@ function updateAllSplits() {
       continue;
     }
 
-    writeLeagueSheet(ss, cfg.sheetName, rows);
-    summary.push(cfg.league + ': ' + rows.length + ' rows');
+    writeLeagueSheet(ss, cfg.sheetName, result.rows);
+    summary.push(cfg.league + ': ' + result.rows.length + ' rows (' + result.pages + ' page' + (result.pages === 1 ? '' : 's') + ')');
   }
 
   Logger.log('updateAllSplits finished — ' + summary.join(' | '));
@@ -118,6 +118,48 @@ function logPublishInfo() {
     }
   }
   Logger.log(lines.join('\n'));
+}
+
+// ---------------------------------------------------------------------------
+// Fetching
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch every page of a league's splits table and merge the rows.
+ *
+ * Stops when the page's pager has no link to the next page (the last page
+ * never mentions tb_page=N+1), or at MAX_PAGES_PER_LEAGUE as a safety cap.
+ * Rows are deduped on (matchup, time, market, selection) in case a game
+ * shifts between pages mid-crawl.
+ *
+ * @return {{rows: Array<Array<string>>, pages: number}}
+ */
+function fetchLeagueRows(cfg, now) {
+  var rows = [];
+  var seen = {};
+  var page = 1;
+
+  for (; page <= MAX_PAGES_PER_LEAGUE; page++) {
+    var url = DK_SPLITS_URL + '?tb_eg=' + cfg.eventGroup + '&tb_edate=n30days&tb_page=' + page;
+    var resp = UrlFetchApp.fetch(url, FETCH_OPTIONS);
+    if (resp.getResponseCode() !== 200) {
+      throw new Error('HTTP ' + resp.getResponseCode() + ' on page ' + page);
+    }
+    var html = resp.getContentText();
+
+    var pageRows = parseSplitsPage(html, now);
+    for (var i = 0; i < pageRows.length; i++) {
+      var r = pageRows[i];
+      var key = r[0] + '|' + r[1] + '|' + r[2] + '|' + r[3];
+      if (seen[key]) continue;
+      seen[key] = true;
+      rows.push(r);
+    }
+
+    if (html.indexOf('tb_page=' + (page + 1)) === -1) break;
+  }
+
+  return { rows: rows, pages: Math.min(page, MAX_PAGES_PER_LEAGUE) };
 }
 
 // ---------------------------------------------------------------------------
