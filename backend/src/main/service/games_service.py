@@ -1,8 +1,26 @@
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from enums.league import LeagueKey
 from repository import get_events_repository
 from repository import social_repository
+
+ET_TZ = ZoneInfo("America/New_York")
+
+
+def _slim_summary(event_data: dict, league_key: str) -> dict:
+    return {
+        "id": event_data.get("id"),
+        "league": league_key,
+        "awayTeam": event_data.get("awayTeam"),
+        "homeTeam": event_data.get("homeTeam"),
+        "gameTimeET": event_data.get("gameTimeET"),
+        "status": event_data.get("status"),
+        "liveScore": event_data.get("liveScore"),
+        "finalScore": event_data.get("finalScore"),
+        "scoresUpdatedAt": event_data.get("scoresUpdatedAt"),
+    }
 
 
 async def get_games(dateET: str) -> tuple[dict[str, Any], int]:
@@ -32,17 +50,7 @@ async def get_games(dateET: str) -> tuple[dict[str, Any], int]:
         allowed_leagues = {lk.value for lk in LeagueKey if lk != LeagueKey.ALL}
         if league_key not in allowed_leagues:
             continue
-        by_league[league_key].append({
-            "id": event_data.get("id"),
-            "league": league_key,
-            "awayTeam": event_data.get("awayTeam"),
-            "homeTeam": event_data.get("homeTeam"),
-            "gameTimeET": event_data.get("gameTimeET"),
-            "status": event_data.get("status"),
-            "liveScore": event_data.get("liveScore"),
-            "finalScore": event_data.get("finalScore"),
-            "scoresUpdatedAt": event_data.get("scoresUpdatedAt"),
-        })
+        by_league[league_key].append(_slim_summary(event_data, league_key))
         total += 1
 
     # Order each league's games by start time
@@ -50,6 +58,43 @@ async def get_games(dateET: str) -> tuple[dict[str, Any], int]:
         by_league[league_key].sort(key=lambda e: e.get("gameTimeET", ""))
 
     return by_league, total
+
+
+async def get_upcoming_games() -> tuple[str, list[dict], int]:
+    """
+    Every game from today (ET) forward — the look-ahead view — as slim
+    summaries grouped day-first, then league. Bounded by DK's ~30-day horizon.
+
+    Returns: (todayET, days: [{dateET, by_league, total}], total)
+    """
+    todayET = datetime.now(ET_TZ).strftime("%Y-%m-%d")
+    allowed_leagues = {lk.value for lk in LeagueKey if lk != LeagueKey.ALL}
+
+    by_date: dict[str, dict[str, list]] = {}
+    total = 0
+    for event in get_events_repository.get_upcoming_events(todayET):
+        event_data = event.to_dict()
+        league_key = event_data.get("league")
+        if league_key not in allowed_leagues:
+            continue
+        date_key = (event_data.get("gameTimeET") or "")[:10]
+        if not date_key:
+            continue
+        by_date.setdefault(date_key, {}).setdefault(league_key, []).append(
+            _slim_summary(event_data, league_key)
+        )
+        total += 1
+
+    days = []
+    for date_key in sorted(by_date):
+        day_leagues = by_date[date_key]
+        day_total = 0
+        for league_key in day_leagues:
+            day_leagues[league_key].sort(key=lambda e: e.get("gameTimeET", ""))
+            day_total += len(day_leagues[league_key])
+        days.append({"dateET": date_key, "by_league": day_leagues, "total": day_total})
+
+    return todayET, days, total
 
 
 async def get_game(game_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:

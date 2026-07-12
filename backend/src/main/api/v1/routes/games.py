@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
-from dto.response.games import GamesResponse, GameResponse
+from dto.response.games import GamesResponse, GamesUpcomingResponse, GameResponse
 from service import games_service
 
 router = APIRouter(prefix="/games", tags=["games"])
@@ -24,6 +24,26 @@ async def games_route(dateET: Optional[str] = Query(None, description="ET date s
         generatedAt=generatedAt,
         dateET=dateET_parsed,
         by_league=by_league,
+        total=total,
+    )
+
+
+# Get every game from today (ET) forward, grouped by day then league.
+# Registered before /{game_id} so "upcoming" isn't swallowed as a game id.
+@router.get("/upcoming", response_model=GamesUpcomingResponse)
+async def games_upcoming_route():
+    """
+    The look-ahead view: all upcoming games (DK's ~30-day horizon), slim
+    summaries grouped day-first then league, days ascending.
+    """
+    generatedAt = datetime.now(timezone.utc).isoformat()
+
+    todayET, days, total = await games_service.get_upcoming_games()
+
+    return GamesUpcomingResponse(
+        generatedAt=generatedAt,
+        todayET=todayET,
+        days=days,
         total=total,
     )
 

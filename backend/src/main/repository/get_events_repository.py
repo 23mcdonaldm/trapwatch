@@ -47,6 +47,22 @@ def get_events(dateET: str) -> Iterable["DocumentSnapshot"]:
     )
     return events
 
+def get_upcoming_events(todayET: str) -> Iterable["DocumentSnapshot"]:
+    """
+    Get every event from today (ET) forward — the look-ahead window.
+
+    Deliberately bounded at today-or-later instead of a full-collection scan:
+    completed games accumulate in the odds collection forever, while the
+    forward window stays small (DK only lists ~30 days ahead).
+    """
+    db = get_db()
+    return (
+        db.collection(GAMES_COLLECTION)
+        .where("gameTimeET", ">=", todayET)
+        .get()
+    )
+
+
 def get_event_by_id(game_id: str) -> "DocumentSnapshot":
     """
     Get a single event document from the odds collection by its document id.

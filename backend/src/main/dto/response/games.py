@@ -9,6 +9,14 @@ class GamesResponse(BaseModel):
     total: int
 
 
+class GamesUpcomingResponse(BaseModel):
+    generatedAt: str
+    todayET: str
+    # days ordered ascending: [{dateET, by_league: {leagueKey: summary[]}, total}]
+    days: list[dict[str, Any]]
+    total: int
+
+
 class GameResponse(BaseModel):
     generatedAt: str
     event: dict[str, Any]

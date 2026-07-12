@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trophy, Search, Loader2, LayoutGrid, ChevronRight } from 'lucide-react';
 import { FilterState, League } from '../types';
-import { ApiGameSummary } from '@/types/odds';
+import { ApiGameSummary, ApiUpcomingDay } from '@/types/odds';
 import { DatePicker } from '../components/FiltersBar';
 import { ScoreBadge } from '../components/ScoreBadge';
 import { gamesApiService } from '../services/fetch.games';
@@ -57,6 +57,15 @@ const GameRow: React.FC<{ game: ApiGameSummary }> = ({ game }) => {
   );
 };
 
+// "2026-07-13" -> "Today" / "Tomorrow" / "Sun, Jul 13" (all in ET terms)
+const dayLabel = (dateET: string, todayET: string): string => {
+  if (dateET === todayET) return 'Today';
+  const d = new Date(`${dateET}T12:00:00Z`);
+  const t = new Date(`${todayET}T12:00:00Z`);
+  if (d.getTime() - t.getTime() === 24 * 3600 * 1000) return 'Tomorrow';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+};
+
 const AllGames: React.FC = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<FilterState>({
@@ -65,32 +74,33 @@ const AllGames: React.FC = () => {
     label: 'ALL',
     date: 'upcoming'
   });
-  const [gamesByLeague, setGamesByLeague] = useState<Record<string, ApiGameSummary[]>>({});
+  const [days, setDays] = useState<ApiUpcomingDay[]>([]);
+  const [todayET, setTodayET] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const isUpcoming = filters.date === 'upcoming';
 
   useEffect(() => {
     const fetchGames = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch by ET date (YYYY-MM-DD). "upcoming" uses today's date in ET.
-        const ET_TZ = 'America/New_York';
-        const todayET = new Intl.DateTimeFormat('en-CA', {
-          timeZone: ET_TZ,
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(new Date());
-
-        const dateToFetch = filters.date === 'upcoming' ? todayET : filters.date;
-
-        const data = await gamesApiService.getGames(dateToFetch);
-        setGamesByLeague(data.by_league);
+        if (filters.date === 'upcoming') {
+          // Default look-ahead: every upcoming day, grouped by day server-side.
+          const data = await gamesApiService.getUpcomingGames();
+          setDays(data.days);
+          setTodayET(data.todayET);
+        } else {
+          // Specific date from the picker: the existing single-day endpoint.
+          const data = await gamesApiService.getGames(filters.date);
+          setDays([{ dateET: filters.date, by_league: data.by_league, total: data.total }]);
+          setTodayET('');
+        }
       } catch (err) {
         console.error('Failed to fetch games:', err);
         setError('Failed to load games');
-        setGamesByLeague({});
+        setDays([]);
       } finally {
         setLoading(false);
       }
@@ -99,22 +109,28 @@ const AllGames: React.FC = () => {
     fetchGames();
   }, [filters.date]);
 
-  const filteredSections = useMemo(() => {
+  const filteredDays = useMemo(() => {
     const search = filters.search.toLowerCase();
-    return LEAGUE_SECTIONS
-      .filter(section => filters.league === 'ALL' || filters.league === section.league)
-      .map(section => ({
-        ...section,
-        games: (gamesByLeague[section.apiKey] || []).filter(game =>
-          search === '' ||
-          game.homeTeam.toLowerCase().includes(search) ||
-          game.awayTeam.toLowerCase().includes(search)
-        ),
+    return days
+      .map(day => ({
+        dateET: day.dateET,
+        sections: LEAGUE_SECTIONS
+          .filter(section => filters.league === 'ALL' || filters.league === section.league)
+          .map(section => ({
+            ...section,
+            games: (day.by_league[section.apiKey] || []).filter(game =>
+              search === '' ||
+              game.homeTeam.toLowerCase().includes(search) ||
+              game.awayTeam.toLowerCase().includes(search)
+            ),
+          }))
+          .filter(section => section.games.length > 0),
       }))
-      .filter(section => section.games.length > 0);
-  }, [filters, gamesByLeague]);
+      .filter(day => day.sections.length > 0);
+  }, [filters, days]);
 
-  const totalGames = filteredSections.reduce((sum, s) => sum + s.games.length, 0);
+  const totalGames = filteredDays.reduce(
+    (sum, day) => sum + day.sections.reduce((s, sec) => s + sec.games.length, 0), 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-[#020617] pb-10 transition-colors duration-200 relative">
@@ -199,20 +215,36 @@ const AllGames: React.FC = () => {
             </button>
           </div>
         ) : (
-          filteredSections.map(section => (
-            <section key={section.apiKey} className="mb-8">
-              <h2 className="text-lg md:text-2xl font-black text-slate-900 dark:text-white mb-3 mt-2 px-1 flex items-center gap-2">
-                {section.league}
-                <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
-                  {section.games.length}
-                </span>
-              </h2>
-              <div className="space-y-3">
-                {section.games.map(game => (
-                  <GameRow key={game.id} game={game} />
-                ))}
-              </div>
-            </section>
+          filteredDays.map(day => (
+            <div key={day.dateET} className="mb-10">
+              {/* Day header (only meaningful in the multi-day Upcoming view) */}
+              {isUpcoming && (
+                <div className="flex items-center gap-3 mb-4 mt-2">
+                  <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
+                    {dayLabel(day.dateET, todayET)}
+                  </h2>
+                  <span className="text-xs font-bold text-slate-400">
+                    {new Date(`${day.dateET}T12:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' })}
+                  </span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                </div>
+              )}
+              {day.sections.map(section => (
+                <section key={`${day.dateET}-${section.apiKey}`} className="mb-8">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white mb-3 px-1 flex items-center gap-2">
+                    {section.league}
+                    <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                      {section.games.length}
+                    </span>
+                  </h3>
+                  <div className="space-y-3">
+                    {section.games.map(game => (
+                      <GameRow key={game.id} game={game} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           ))
         )}
       </div>

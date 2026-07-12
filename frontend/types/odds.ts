@@ -116,6 +116,21 @@ export interface ApiOddsSide {
     total: number;
   }
 
+  export interface ApiUpcomingDay {
+    dateET: string;
+    by_league: {
+      [key: string]: ApiGameSummary[];
+    };
+    total: number;
+  }
+
+  export interface ApiUpcomingGamesResponse {
+    generatedAt: string;
+    todayET: string;
+    days: ApiUpcomingDay[];
+    total: number;
+  }
+
   export interface ApiGameResponse {
     generatedAt: string;
     event: ApiGame;

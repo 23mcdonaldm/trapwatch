@@ -30,6 +30,7 @@ const Dashboard: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [slateCount, setSlateCount] = useState(0);
   
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
   const userData = useAppSelector((state) => state.auth.userData);
@@ -52,10 +53,11 @@ const Dashboard: React.FC = () => {
         const dateToFetch = filters.date === 'upcoming' ? todayET : filters.date;
 
         const feedData = await apiService.getFeed(dateToFetch);
-        console.log('feedData', feedData);
         const mappedGames = mapApiFeedToGames(feedData);
-        console.log('mappedGames', mappedGames);
         setGroupedGames(mappedGames);
+        // How many games the day has regardless of flags — distinguishes
+        // "no games" from "games but no traps developed yet" (future dates).
+        setSlateCount(Object.values(feedData.by_league || {}).reduce((n, games) => n + games.length, 0));
       } catch (err) {
         console.error('Failed to fetch games:', err);
         setError('Failed to load games');
@@ -270,15 +272,33 @@ const Dashboard: React.FC = () => {
             </button>
           </div>
         ) : filteredGames.total === 0 ? (
+          slateCount > 0 && filters.label === 'ALL' && filters.search === '' && filters.league === 'ALL' ? (
+            // The day has games but no flags yet — typical for future dates,
+            // since splits only develop as game-day money comes in.
+            <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
+              <div className="text-3xl mb-3">👀</div>
+              <p className="text-slate-700 dark:text-slate-200 font-bold mb-1">No traps flagged yet</p>
+              <p className="text-slate-400 font-medium text-sm max-w-sm mx-auto">
+                Splits develop as game-day money comes in. {slateCount} game{slateCount === 1 ? '' : 's'} on this slate —
+              </p>
+              <button
+                onClick={() => navigate('/games')}
+                className="mt-3 text-orange-600 font-bold hover:underline"
+              >
+                See all games
+              </button>
+            </div>
+          ) : (
           <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mt-8">
             <p className="text-slate-400 font-medium">No traps found matching your filters.</p>
-            <button 
+            <button
               onClick={() => setFilters({ league: 'ALL', search: '', label: 'ALL', date: 'upcoming' })}
               className="mt-2 text-orange-600 font-bold hover:underline"
             >
               Clear filters
             </button>
           </div>
+          )
         ) : (
             <>
                 {/* Trap City */}

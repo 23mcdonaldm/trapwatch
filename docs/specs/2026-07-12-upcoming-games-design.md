@@ -1,7 +1,7 @@
 # Upcoming Games View (Look-Ahead) — Design
 
 **Date:** 2026-07-12
-**Status:** Approved — implementation in progress
+**Status:** Implemented & verified (2026-07-12)
 **Depends on:** apps-script pagination fix (f878146) — the sheet now carries DK's full ~30-day horizon
 
 ## Problem
@@ -63,10 +63,10 @@ the existing single-day endpoint.
 
 ## Implementation checklist (update as steps complete)
 
-- [ ] 1. Design doc committed
-- [ ] 2. Backend: `get_upcoming_events()` repository query (gameTimeET >= today ET)
-- [ ] 3. Backend: `get_upcoming_games()` service + `GamesUpcomingResponse` DTO + `GET /games/upcoming` route (registered before `/games/{game_id}`)
-- [ ] 4. Frontend: `getUpcomingGames()` service + `ApiUpcomingGamesResponse` type
-- [ ] 5. Frontend: All Games "Upcoming" mode renders day sections (Today/Tomorrow/weekday) with league groups; single-date mode unchanged
-- [ ] 6. Dashboard: no-traps-yet notice linking to All Games (shows when feed has games but no flags)
-- [ ] 7. Verify: curl endpoint, browser check of day sections + Dashboard notice, tsc + build
+- [x] 1. Design doc committed
+- [x] 2. Backend: `get_upcoming_events()` repository query (gameTimeET >= today ET)
+- [x] 3. Backend: `get_upcoming_games()` service + `GamesUpcomingResponse` DTO + `GET /games/upcoming` route (registered before `/games/{game_id}`)
+- [x] 4. Frontend: `getUpcomingGames()` service + `ApiUpcomingGamesResponse` type
+- [x] 5. Frontend: All Games "Upcoming" mode renders day sections (Today/Tomorrow/weekday headers) with league groups; single-date picker mode unchanged
+- [x] 6. Dashboard: "No traps flagged yet" notice with slate count + See-all-games link (only when the day has games, no flags, and no user filters active)
+- [x] 7. Verified: `GET /games/upcoming` → todayET 2026-07-12, 14 games in one day (DK's splits horizon only lists ~1-2 days out, so only one day exists in data right now — the multi-day render path is the same loop and will populate as DK lists further days). All Games "Upcoming" shows the "Today · July 12" day header + MLB(14) group. Dashboard shows the "No traps flagged yet / 14 games on this slate / See all games" notice (today: games present, zero flags). tsc + vite build clean.

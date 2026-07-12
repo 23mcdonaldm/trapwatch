@@ -1,4 +1,4 @@
-import { ApiGamesResponse, ApiGameResponse } from '@/types/odds';
+import { ApiGamesResponse, ApiUpcomingGamesResponse, ApiGameResponse } from '@/types/odds';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -23,6 +23,26 @@ export const gamesApiService = {
       return data as ApiGamesResponse;
     } catch (error) {
       console.error('Error fetching games:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch every upcoming game (today ET forward, DK's ~30-day horizon),
+   * grouped day-first then league. Powers the All Games "Upcoming" view.
+   */
+  getUpcomingGames: async (): Promise<ApiUpcomingGamesResponse> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/upcoming`);
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data as ApiUpcomingGamesResponse;
+    } catch (error) {
+      console.error('Error fetching upcoming games:', error);
       throw error;
     }
   },
