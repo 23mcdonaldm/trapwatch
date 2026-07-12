@@ -1,7 +1,7 @@
 # Trap Status Algorithm Rework: Single Authority + NO_TRAP Downgrades — Design
 
 **Date:** 2026-07-12
-**Status:** Approved — implementation in progress
+**Status:** Implemented & verified live (2026-07-12)
 
 ## Problem
 
@@ -71,11 +71,14 @@ thresholds) keep running but ONLY write their `StatusFactors.Diff` /
 
 ## Implementation checklist (update as steps complete)
 
-- [ ] 1. Doc committed
-- [ ] 2. `TrapStatus.NO_TRAP = "NT"` + `TRAP_RANK` in enums/trap_status.py
-- [ ] 3. `detect_trap_status`: fix prev source ("Status"), NT branch, rewrite Spread/Total onto new criteria
-- [ ] 4. `detect_trap_diff` + `detect_trap_public_money`: NT + prev from own StatusFactors slot; same symmetric comparison
-- [ ] 5. `calculate_traps`: Status/StatusSide/counts from `detect_trap_status` only; public_money → StatusFactors only; docstrings updated
-- [ ] 6. Frontend: `generateTriggers` skips NT StatusFactors entries
-- [ ] 7. Unit tests for detect_trap_status (gates, tiers, NT downgrade, missing-prev quiet)
-- [ ] 8. Verify: run GET /traps against live data — stale flags downgrade to NT once, second run is a no-op; frontend still renders correctly
+- [x] 1. Doc committed
+- [x] 2. `TrapStatus.NO_TRAP = "NT"` + `TRAP_RANK` in enums/trap_status.py
+- [x] 3. `detect_trap_status`: prev from "Status", NT branch, Spread/Total rewritten onto new criteria (shared `_grade` helper, one symmetric comparison per market)
+- [x] 4. `detect_trap_diff` + `detect_trap_public_money`: NT + prev from own StatusFactors slot (`_factor_prev`); thresholds unchanged
+- [x] 5. `calculate_traps`: Status/StatusSide/counts from `detect_trap_status` only; both informational detectors → StatusFactors only; route + service docstrings updated
+- [x] 6. Frontend: `generateTriggers` `isActive` guard skips NT/None factor tuples
+- [x] 7. `backend/src/test/traps_test.py` — 16/16 pass (tiers at exact boundaries, both gates, TC→NT and TC→TP downgrades, never-flagged quiet, NT→NT no-op, factor-slot prev isolation)
+- [x] 8. Verified live: run 1 flagged 2 TC + 1 TD under new criteria AND downgraded the morning's stale old-algo flags (PIT/MIL Spread/Total → Status NT, StatusSide None, PublicMoney factor ['NT', None]; Diff pill legitimately kept). Run 2 = all zeros (idempotent). Signed-diff confirmed working (68% bets with +30 diff → NT, sharps agree). Dashboard renders curated board: 2 TC / 1 TD / 2 TP. results_test + traps_test OK, tsc + build clean.
+
+Note: past-dated games (gameTimeET < today) are outside `get_all_events_with_odds`'s
+window, so already-graded history keeps its old flags — accepted per design.

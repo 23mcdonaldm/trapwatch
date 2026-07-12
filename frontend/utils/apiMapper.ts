@@ -232,9 +232,13 @@ const generateTriggers = (
     }
   };
   
+  // A factor that graded out as "NT" (no trap) means the signal cleared — no pill.
+  const isActive = (entry: unknown): entry is [string, string] =>
+    Array.isArray(entry) && entry.length >= 2 && entry[0] !== 'NT' && !!entry[0] && !!entry[1];
+
   // Process Diff factor
-  // Format: [TC/TD/TP, Home/Away]
-  if (statusFactors.Diff && Array.isArray(statusFactors.Diff) && statusFactors.Diff.length >= 2) {
+  // Format: [TC/TD/TP/NT, Home/Away]
+  if (isActive(statusFactors.Diff)) {
     const [diffStatus, diffSide] = statusFactors.Diff;
     // diffSide is "Home" or "Away" - check if it matches the favorite
     const isFromFavorite = (diffSide === 'Home' && isHomeFavorite) || (diffSide === 'Away' && !isHomeFavorite);
@@ -248,8 +252,8 @@ const generateTriggers = (
   }
   
   // Process PublicMoney factor
-  // Format: [TC/TD/TP, Home/Away]
-  if (statusFactors.PublicMoney && Array.isArray(statusFactors.PublicMoney) && statusFactors.PublicMoney.length >= 2) {
+  // Format: [TC/TD/TP/NT, Home/Away]
+  if (isActive(statusFactors.PublicMoney)) {
     const [publicMoneyStatus, publicMoneySide] = statusFactors.PublicMoney;
     // publicMoneySide is "Home" or "Away" - check if it matches the favorite
     const isFromFavorite = (publicMoneySide === 'Home' && isHomeFavorite) || (publicMoneySide === 'Away' && !isHomeFavorite);

@@ -10,13 +10,13 @@ router = APIRouter(prefix="/traps", tags=["traps"])
 @router.get("", response_model=TrapsResponse)
 async def traps_route():
     """
-    Calculate traps for all events by reading from Firestore,
-    computing the difference, and updating status fields.
-    
-    Status assignment:
-    - TC (Trap City): difference > 30
-    - TD (Trap Detected): difference > 20  
-    - TP (Trap Potential): difference > 10
+    Recompute trap statuses for all events and persist changes.
+
+    Status is set solely by detect_trap_status: public side must have
+    odds >= -350 and bets% >= 65, then the bets-handle diff sets the tier
+    (>= 25 TP, >= 35 TD, >= 50 TC, else NT). NT ("No Trap") is written
+    explicitly so downgrades stick. Counts reflect markets whose Status
+    changed to that tier this run.
     """
     generatedAt = datetime.now(timezone.utc).isoformat()
 
