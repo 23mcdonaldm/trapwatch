@@ -138,4 +138,29 @@ export interface ApiOddsSide {
       [market: string]: ApiSocialAggregate; // market keys are lowercase
     };
   }
+
+  /** One side's numbers at one snapshot in a movement-history series. */
+  export interface ApiHistorySide {
+    odds: number | null;
+    betsPct: number | null;
+    handlePct: number | null;
+  }
+
+  /** One snapshot: `line` present for spread/total; sides keyed home/away or over/under. */
+  export interface ApiHistoryPoint {
+    t: string;
+    line?: number | null;
+    home?: ApiHistorySide;
+    away?: ApiHistorySide;
+    over?: ApiHistorySide;
+    under?: ApiHistorySide;
+  }
+
+  export interface ApiGameHistoryResponse {
+    generatedAt: string;
+    gameId: string;
+    moneyline: ApiHistoryPoint[];
+    spread: ApiHistoryPoint[];
+    total: ApiHistoryPoint[];
+  }
   

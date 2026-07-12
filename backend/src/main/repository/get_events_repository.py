@@ -71,6 +71,25 @@ def get_event_by_id(game_id: str) -> "DocumentSnapshot":
     return db.collection(GAMES_COLLECTION).document(game_id).get()
 
 
+def get_event_history(game_id: str) -> dict[str, list[dict]]:
+    """
+    All odds-movement snapshots for one game, ordered by runTimestamp:
+    {"moneyline": [...], "spread": [...], "total": [...]} from the game doc's
+    ml_history / spread_history / total_history subcollections.
+    """
+    db = get_db()
+    game_ref = db.collection(GAMES_COLLECTION).document(game_id)
+    history = {}
+    for key, subcollection in (
+        ("moneyline", "ml_history"),
+        ("spread", "spread_history"),
+        ("total", "total_history"),
+    ):
+        snaps = game_ref.collection(subcollection).order_by("runTimestamp").get()
+        history[key] = [snap.to_dict() for snap in snaps]
+    return history
+
+
 def update_event_scores(game_id: str, fields: dict) -> None:
     """
     Merge score/status fields (finalScore, status, scoresUpdatedAt) onto an

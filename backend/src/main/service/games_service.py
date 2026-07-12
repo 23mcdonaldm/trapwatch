@@ -97,6 +97,41 @@ async def get_upcoming_games() -> tuple[str, list[dict], int]:
     return todayET, days, total
 
 
+def _slim_history_side(side: dict | None) -> dict:
+    side = side or {}
+    return {
+        "odds": side.get("odds"),
+        "betsPct": side.get("betsPct"),
+        "handlePct": side.get("handlePct"),
+    }
+
+
+async def get_game_history(game_id: str) -> dict[str, list[dict]] | None:
+    """
+    Odds-movement series for one game's three markets, oldest first, slimmed to
+    what the movement charts need. Returns None if the game doesn't exist.
+    """
+    event = get_events_repository.get_event_by_id(game_id)
+    if not event.exists:
+        return None
+
+    raw = get_events_repository.get_event_history(game_id)
+
+    def point(doc: dict, side_keys: tuple[str, str], with_line: bool) -> dict:
+        p: dict[str, Any] = {"t": doc.get("runTimestamp")}
+        if with_line:
+            p["line"] = doc.get("line")
+        for key in side_keys:
+            p[key] = _slim_history_side(doc.get(key))
+        return p
+
+    return {
+        "moneyline": [point(d, ("home", "away"), False) for d in raw["moneyline"]],
+        "spread": [point(d, ("home", "away"), True) for d in raw["spread"]],
+        "total": [point(d, ("over", "under"), True) for d in raw["total"]],
+    }
+
+
 async def get_game(game_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
     """
     Get a single game with its social aggregates (per market).

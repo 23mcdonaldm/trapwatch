@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
-from dto.response.games import GamesResponse, GamesUpcomingResponse, GameResponse
+from dto.response.games import GamesResponse, GamesUpcomingResponse, GameResponse, GameHistoryResponse
 from service import games_service
 
 router = APIRouter(prefix="/games", tags=["games"])
@@ -45,6 +45,24 @@ async def games_upcoming_route():
         todayET=todayET,
         days=days,
         total=total,
+    )
+
+
+# Odds-movement history for one game's three markets (the movement charts)
+@router.get("/{game_id}/history", response_model=GameHistoryResponse)
+async def game_history_route(game_id: str):
+    generatedAt = datetime.now(timezone.utc).isoformat()
+
+    history = await games_service.get_game_history(game_id)
+    if history is None:
+        raise HTTPException(status_code=404, detail=f"Game '{game_id}' not found")
+
+    return GameHistoryResponse(
+        generatedAt=generatedAt,
+        gameId=game_id,
+        moneyline=history["moneyline"],
+        spread=history["spread"],
+        total=history["total"],
     )
 
 

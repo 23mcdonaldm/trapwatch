@@ -1,4 +1,4 @@
-import { ApiGamesResponse, ApiUpcomingGamesResponse, ApiGameResponse } from '@/types/odds';
+import { ApiGamesResponse, ApiUpcomingGamesResponse, ApiGameResponse, ApiGameHistoryResponse } from '@/types/odds';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
 
@@ -43,6 +43,27 @@ export const gamesApiService = {
       return data as ApiUpcomingGamesResponse;
     } catch (error) {
       console.error('Error fetching upcoming games:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch a game's odds-movement history (ml/spread/total snapshot series)
+   * for the movement charts.
+   */
+  getGameHistory: async (gameId: string): Promise<ApiGameHistoryResponse> => {
+    try {
+      const url = `${API_BASE_URL}/games/${encodeURIComponent(gameId)}/history`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data as ApiGameHistoryResponse;
+    } catch (error) {
+      console.error('Error fetching game history:', error);
       throw error;
     }
   },

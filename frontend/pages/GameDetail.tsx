@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Trophy, Loader2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Trophy, Loader2, ChevronRight, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 import { Game, TrapLabel, TRAP_STATUS_MAP } from '../types';
-import { ApiGame, ApiGameSummary, ApiOddsSide } from '@/types/odds';
+import { ApiGame, ApiGameSummary, ApiGameHistoryResponse, ApiOddsSide } from '@/types/odds';
 import { ApiMarket } from '@/types/social';
 import { VoteBar, CommentsSection } from '../components/GameComponents';
+import { MovementChart, MovementSideOption } from '../components/MovementChart';
 import { ScoreBadge } from '../components/ScoreBadge';
 import { gamesApiService } from '../services/fetch.games';
 import { mapApiGameToGame, mapSummaryTeams, parseGameTimeET } from '../utils/apiMapper';
@@ -58,6 +59,37 @@ const trapBadge = (status?: string) => {
   );
 };
 
+// Collapsed-by-default odds movement chart inside a market section
+const MovementPanel: React.FC<{
+  open: boolean;
+  onToggle: () => void;
+  loading: boolean;
+  children: React.ReactNode; // the chart (rendered only when open + loaded)
+}> = ({ open, onToggle, loading, children }) => (
+  <div className="border border-slate-200/60 dark:border-slate-800 rounded-xl overflow-hidden">
+    <button
+      onClick={onToggle}
+      className="w-full px-4 py-2.5 flex items-center justify-between bg-slate-50/60 dark:bg-slate-950/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+    >
+      <span className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+        <TrendingUp size={14} className="text-orange-500" /> Movement
+      </span>
+      {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+    </button>
+    {open && (
+      <div className="px-4 py-3 bg-white dark:bg-slate-900">
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 size={20} className="animate-spin text-orange-500" />
+          </div>
+        ) : (
+          children
+        )}
+      </div>
+    )}
+  </div>
+);
+
 // One market section: sides with handle/bets + its own consensus and comments
 const MarketSection: React.FC<{
   market: ApiMarket;
@@ -65,7 +97,8 @@ const MarketSection: React.FC<{
   sides: Array<{ label: string; side: ApiOddsSide }>;
   status?: string;
   game: Game;
-}> = ({ market, title, sides, status, game }) => (
+  movement?: React.ReactNode;
+}> = ({ market, title, sides, status, game, movement }) => (
   <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] dark:shadow-none overflow-hidden">
     <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
       <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-wide text-sm">{title}</h3>
@@ -80,6 +113,7 @@ const MarketSection: React.FC<{
       </div>
 
       <div className="flex flex-col gap-5">
+        {movement}
         <VoteBar game={game} market={market} />
         <div className="bg-slate-50/60 dark:bg-slate-950/30 rounded-xl border border-slate-200/60 dark:border-slate-800 p-5">
           <CommentsSection game={game} market={market} />
@@ -100,11 +134,30 @@ const GameDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Odds movement history — fetched once, lazily, when any Movement panel first opens
+  const [history, setHistory] = useState<ApiGameHistoryResponse | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [openMovement, setOpenMovement] = useState<Record<string, boolean>>({});
+
+  const toggleMovement = (market: string) => {
+    setOpenMovement(prev => ({ ...prev, [market]: !prev[market] }));
+    if (!history && !historyLoading && id) {
+      setHistoryLoading(true);
+      gamesApiService.getGameHistory(id)
+        .then(setHistory)
+        .catch(err => console.error('Failed to fetch game history:', err))
+        .finally(() => setHistoryLoading(false));
+    }
+  };
+
   useEffect(() => {
     const fetchGame = async () => {
       if (!id) return;
       setLoading(true);
       setError(null);
+      // Movement history belongs to the previous game — reset on navigation
+      setHistory(null);
+      setOpenMovement({});
       try {
         const data = await gamesApiService.getGame(id);
         setApiGame(data.event);
@@ -233,6 +286,20 @@ const GameDetail: React.FC = () => {
                 { label: game.awayTeam.shortName, side: odds.Moneyline.Away },
                 { label: game.homeTeam.shortName, side: odds.Moneyline.Home },
               ]}
+              movement={
+                <MovementPanel open={!!openMovement['Moneyline']} onToggle={() => toggleMovement('Moneyline')} loading={historyLoading}>
+                  {history && (
+                    <MovementChart
+                      points={history.moneyline}
+                      mode="odds"
+                      sides={[
+                        { key: 'away', label: game.awayTeam.shortName },
+                        { key: 'home', label: game.homeTeam.shortName },
+                      ] as [MovementSideOption, MovementSideOption]}
+                    />
+                  )}
+                </MovementPanel>
+              }
             />
           )}
 
@@ -246,6 +313,22 @@ const GameDetail: React.FC = () => {
                 { label: awaySpreadLabel, side: odds.Spread.Away },
                 { label: homeSpreadLabel, side: odds.Spread.Home },
               ]}
+              movement={
+                <MovementPanel open={!!openMovement['Spread']} onToggle={() => toggleMovement('Spread')} loading={historyLoading}>
+                  {history && (
+                    <MovementChart
+                      points={history.spread}
+                      mode="line"
+                      // The stored line is home-perspective; flip when Away is selected
+                      flipLineForSecondSide
+                      sides={[
+                        { key: 'home', label: game.homeTeam.shortName },
+                        { key: 'away', label: game.awayTeam.shortName },
+                      ] as [MovementSideOption, MovementSideOption]}
+                    />
+                  )}
+                </MovementPanel>
+              }
             />
           )}
 
@@ -259,6 +342,20 @@ const GameDetail: React.FC = () => {
                 { label: `Over ${totalLine ?? ''}`.trim(), side: odds.Total.Over },
                 { label: `Under ${totalLine ?? ''}`.trim(), side: odds.Total.Under },
               ]}
+              movement={
+                <MovementPanel open={!!openMovement['Total']} onToggle={() => toggleMovement('Total')} loading={historyLoading}>
+                  {history && (
+                    <MovementChart
+                      points={history.total}
+                      mode="line"
+                      sides={[
+                        { key: 'over', label: 'Over' },
+                        { key: 'under', label: 'Under' },
+                      ] as [MovementSideOption, MovementSideOption]}
+                    />
+                  )}
+                </MovementPanel>
+              }
             />
           )}
         </div>
