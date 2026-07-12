@@ -26,7 +26,7 @@ def upsert_events(games: Iterable[dict]) -> int:
             "homeTeam": g["homeTeam"],
             "awayTeam": g["awayTeam"],
             "lastSeenAt": now,
-            "status": EventStatus.SCHEDULED.value
+            "status": EventStatus.UNSTARTED.value
         }, merge=True)
         count += 1
 

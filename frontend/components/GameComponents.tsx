@@ -621,7 +621,7 @@ export const CommentsSection: React.FC<{ game: Game; market?: ApiMarket; preview
     }
     setPosting(true);
     try {
-      await socialApiService.postComment(game.id, market, userData?.name || 'Anonymous', newComment.trim());
+      await socialApiService.postComment(game.id, market, newComment.trim());
       setNewComment('');
       // No optimistic insert needed — the Firestore listener delivers it instantly.
     } catch (err) {

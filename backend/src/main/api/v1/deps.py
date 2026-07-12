@@ -10,14 +10,15 @@ def _ensure_firebase_app() -> None:
         firebase_admin.initialize_app()
 
 
-async def get_current_user_id(authorization: str | None = Header(None)) -> str:
+async def get_current_user(authorization: str | None = Header(None)) -> dict:
     """
     FastAPI dependency: verify the Firebase ID token from the Authorization header
-    and return the caller's uid.
+    and return the caller's identity: {"uid": str, "name": str | None}.
 
     The frontend sends `Authorization: Bearer <firebase-id-token>` obtained from
     firebase/auth `currentUser.getIdToken()`. The uid from the VERIFIED token is
     the only user identity we trust — never a user_id from the request body.
+    The name claim seeds users/{uid}.displayName on first write.
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
@@ -29,4 +30,10 @@ async def get_current_user_id(authorization: str | None = Header(None)) -> str:
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    return decoded["uid"]
+    return {"uid": decoded["uid"], "name": decoded.get("name")}
+
+
+async def get_current_user_id(authorization: str | None = Header(None)) -> str:
+    """FastAPI dependency: verified uid only (see get_current_user)."""
+    user = await get_current_user(authorization)
+    return user["uid"]

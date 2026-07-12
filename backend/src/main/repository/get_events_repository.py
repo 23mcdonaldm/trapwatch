@@ -55,6 +55,15 @@ def get_event_by_id(game_id: str) -> "DocumentSnapshot":
     return db.collection(GAMES_COLLECTION).document(game_id).get()
 
 
+def update_event_scores(game_id: str, fields: dict) -> None:
+    """
+    Merge score/status fields (finalScore, status, scoresUpdatedAt) onto an
+    event document. Used by the scores poller.
+    """
+    db = get_db()
+    db.collection(GAMES_COLLECTION).document(game_id).set(fields, merge=True)
+
+
 def get_all_events_with_odds() -> Iterable["DocumentSnapshot"]:
     """
     Get all upcoming and future events from the odds collection

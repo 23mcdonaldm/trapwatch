@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
-from api.v1.deps import get_current_user_id
+from api.v1.deps import get_current_user
 from dto.response.comments import CommentsResponse, CommentsListResponse
 from dto.request.comments import CommentsRequest
 from service import comments_service
@@ -10,25 +10,25 @@ router = APIRouter(prefix="/comments", tags=["comments"])
 
 # User writes a comment for a game's market
 @router.post("", response_model=CommentsResponse)
-async def comments_route(payload: CommentsRequest, user_id: str = Depends(get_current_user_id)):
+async def comments_route(payload: CommentsRequest, user: dict = Depends(get_current_user)):
     """
     User writes a comment for a game's market.
 
     Args in payload:
         game_id: The ID of the game
-        display_name: The display name of the user
         market: The market of the comment
         comment: The comment
 
     The user is identified by the verified Firebase ID token (Authorization header),
-    never by a user_id in the body.
+    never by a user_id in the body. The display name comes from users/{uid}
+    (source of truth), seeded from the token's name claim on first write.
 
     Returns:
         CommentsResponse: The response containing the comment result
     """
     generatedAt = datetime.now(timezone.utc).isoformat()
 
-    comment = await comments_service.set_user_comment(payload.game_id, user_id, payload.display_name, payload.market, payload.comment, generatedAt)
+    comment = await comments_service.set_user_comment(payload.game_id, user["uid"], user["name"], payload.market, payload.comment, generatedAt)
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment couldn't be set")
 

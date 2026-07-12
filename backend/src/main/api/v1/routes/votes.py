@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
-from api.v1.deps import get_current_user_id
+from api.v1.deps import get_current_user
 from dto.response.votes import VotesResponse
 from dto.request.votes import VotesRequest
 from service import votes_service
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/votes", tags=["votes"])
 
 # User votes on a game's market
 @router.post("", response_model=VotesResponse)
-async def votes_route(payload: VotesRequest, user_id: str = Depends(get_current_user_id)):
+async def votes_route(payload: VotesRequest, user: dict = Depends(get_current_user)):
     """
     User votes for a game's market.
 
@@ -27,7 +27,7 @@ async def votes_route(payload: VotesRequest, user_id: str = Depends(get_current_
     """
     generatedAt = datetime.now(timezone.utc).isoformat()
 
-    vote = await votes_service.set_user_vote(payload.game_id, user_id, payload.market, payload.side, generatedAt)
+    vote = await votes_service.set_user_vote(payload.game_id, user["uid"], user["name"], payload.market, payload.side, generatedAt)
     if vote is None:
         raise HTTPException(status_code=404, detail="Vote couldn't be set")
 

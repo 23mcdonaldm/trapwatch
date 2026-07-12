@@ -45,8 +45,9 @@ export const socialApiService = {
 
   /**
    * Post a comment on a game's market. Requires a signed-in user.
+   * The display name is resolved server-side from users/{uid} (source of truth).
    */
-  postComment: async (gameId: string, market: ApiMarket, displayName: string, comment: string): Promise<ApiCommentResponse> => {
+  postComment: async (gameId: string, market: ApiMarket, comment: string): Promise<ApiCommentResponse> => {
     try {
       const token = await getIdToken();
       if (!token) {
@@ -59,7 +60,7 @@ export const socialApiService = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ game_id: gameId, market, display_name: displayName, comment }),
+        body: JSON.stringify({ game_id: gameId, market, comment }),
       });
 
       if (!response.ok) {

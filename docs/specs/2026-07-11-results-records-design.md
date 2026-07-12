@@ -1,7 +1,25 @@
 # Results, Records & Score Polling — Design
 
 **Date:** 2026-07-11
-**Status:** Approved for implementation
+**Status:** Implemented & verified E2E (2026-07-11)
+
+## Implementation checklist (update as steps complete)
+
+- [x] 1. `EventStatus` enum → `unstarted|live|completed`; sheet import writes `unstarted`
+- [x] 2. `deps.py` returns decoded token (uid + name claim) — `get_current_user`
+- [x] 3. `users_repository.py` + `user_picks_repository.py` (ensure-user, create-pick)
+- [x] 4. POST /votes: create user_pick + ensure users doc on non-duplicate vote
+- [x] 5. POST /comments: drop `display_name` from body; resolve from users doc/token
+- [x] 6. Frontend: stop sending `display_name` in `postComment` (GameComponents + fetch.social)
+- [x] 7. `service/results_service.py` — grading + evaluation (users + system, transactional); `repository/trap_results_repository.py`
+- [x] 8. `tasks/scores_task.py` — poller endpoint, liveness gate, match, persist, trigger eval; `tasks_router` wired in main.py at `/api/tasks/poll-scores`; scheduler secret guard
+- [x] 9. Read endpoints live: `/users/me/record`, `/users/me/picks`, `/records/system`, `/leaderboard` (routes/users.py, routes/records.py + services + DTOs)
+- [x] 10. Firestore composite indexes + security rules deployed (user_picks owner-read, trap_results/system_records public read, users.record client-write blocked; note: users/{uid} docs pre-exist from frontend signup — ensure_user merges + backfills displayName, leaderboard returns only public fields)
+- [x] 11. Unit tests for grading rules — `backend/src/test/results_test.py`, 19/19 pass (`venv/bin/python -m unittest src.test.results_test`)
+- [x] 12. E2E verified against REAL Odds API data (2026-07-11 MLB slate): liveness gate skipped 5 idle leagues (0 credits), MLB polled → 10 games completed, 13 trap flags graded (TD 1-5, TP 2-5, overall 3-10), test user's spread pick graded win (PIT 7-6, +1.5 covers), user record 1-0-0, all 4 read endpoints return correct data, rerun = full no-op (gate closed, no API calls). Fix found during E2E: doubleheaders (two same-matchup games) made the matcher bail as ambiguous — now disambiguated by closest start time (MATCH_TIME_TOLERANCE_HOURS=1.5 in scores_task.py).
+
+Deployment note (not yet done): create the Cloud Scheduler job hitting
+POST {backend}/api/tasks/poll-scores every 30 min with the X-Scheduler-Secret header.
 
 ## Goal
 

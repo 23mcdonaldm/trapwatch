@@ -4,10 +4,11 @@ import httpx
 from config.settings import settings
 from enums.league import LeagueKey
 from repository.comments_repository import insert_user_comment, get_user_comments
+from repository.users_repository import ensure_user
 
 
-async def set_user_comment(game_id: str, user_id: str, display_name: str, market: str, comment: str, generatedAt: str) -> bool:
-    print(f"Setting user comment for game_id: {game_id}, user_id: {user_id}, display_name: {display_name}, market: {market}, comment: {comment}, generatedAt: {generatedAt}")
+async def set_user_comment(game_id: str, user_id: str, token_name: str | None, market: str, comment: str, generatedAt: str) -> bool:
+    print(f"Setting user comment for game_id: {game_id}, user_id: {user_id}, market: {market}, comment: {comment}, generatedAt: {generatedAt}")
     # Lowercase BEFORE building opportunity_id so it matches the id the feed
     # reads aggregates from (feed_service uses f"{id}_{market.lower()}").
     market = market.lower()
@@ -16,6 +17,11 @@ async def set_user_comment(game_id: str, user_id: str, display_name: str, market
     if not comment or not comment.strip():
         return None
     opportunity_id = f"{game_id}_{market}"
+
+    # users/{uid}.displayName is the source of truth; created here on the user's
+    # first write, seeded from the token's name claim.
+    user = ensure_user(user_id, token_name, generatedAt)
+    display_name = user.get("displayName") or "Anonymous"
 
     inserted = insert_user_comment(opportunity_id, user_id, display_name, comment.strip(), generatedAt)
     if inserted is None:

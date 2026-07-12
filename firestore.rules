@@ -7,7 +7,29 @@ service cloud.firestore {
     // votes, comments — is written by the backend's Firebase Admin SDK,
     // which bypasses these rules, or read here as public data.
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // Owners manage their own profile, but the win/loss record is written
+      // only by the backend (Admin SDK) — block client tampering.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !('record' in request.resource.data);
+      allow update: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['record']);
+    }
+
+    // Pick history: owner-only read; written exclusively by the backend.
+    match /user_picks/{pickId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+
+    // Graded trap outcomes + system records: public read, backend-only write.
+    match /trap_results/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /system_records/{document=**} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // Odds/events/traps feed data: public read, admin-only write.

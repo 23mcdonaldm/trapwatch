@@ -101,7 +101,7 @@ def upsert_csv_odds(
       - gameTimeET: str (e.g., "19:00")
       - homeTeam: str
       - awayTeam: str
-      - status: str (e.g., "scheduled" | "live" | "final")
+      - status: str (e.g., "unstarted" | "live" | "completed")
       - lastUpdatedAt: datetime | str | None (optional; defaults to now UTC)
       - current_odds: dict with structure:
         {
@@ -188,7 +188,7 @@ def upsert_csv_odds(
             "gameTimeET": game_time_et,
             "homeTeam": home_team,
             "awayTeam": away_team,
-            "status": EventStatus.SCHEDULED.value,
+            "status": EventStatus.UNSTARTED.value,
             "lastUpdatedAt": last_updated_at_ts,
             "currentOdds": current_odds,
         }

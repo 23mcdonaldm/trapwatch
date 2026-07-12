@@ -1,9 +1,9 @@
 from enum import Enum
 
 class EventStatus(str, Enum):
-    SCHEDULED = "scheduled"
+    UNSTARTED = "unstarted"
     LIVE = "live"
-    FINAL = "final"
+    COMPLETED = "completed"
 
 
 class Market(str, Enum):
